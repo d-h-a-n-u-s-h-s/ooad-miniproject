@@ -1,0 +1,967 @@
+==============================================================
+MANUFACTURING SUBSYSTEM DATA ACCESS GUIDE
+==============================================================
+
+DOCUMENT OVERVIEW
+--------------------------------------------------------------
+- Requested subsystem heading: Manufacturing
+- Canonical subsystem name(s): Manufacturing
+- Reference files checked: DbOfTeams/manufacturing, supply chain and automation.sql
+- Objects documented in this PDF: 14
+- Objects with explicit permission_matrix grant: 7
+- Objects with write-capable grant: 7
+- Canonical subsystem count in 01-schema.sql: 16
+- Note: Every object name, column list, and permission note is taken from the canonical 01-schema.sql source.
+
+OBJECTS COVERED (14 total)
+--------------------------------------------------------------
+- materials [view]
+- components
+- work_centers
+- routing_steps
+- assembly_lines
+- assembly_line_work_centers
+- bom_header [view]
+- bom_items
+- production_orders
+- execution_logs
+- quality_checks [view]
+- manufactured_cars
+- routings
+- bills_of_materials
+
+==============================================================
+OBJECT: materials
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: View
+- Reference schema object name: materials
+- Canonical 01-schema object name: materials
+- View source table: inventory_items
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: No explicit permission_matrix row found for this subsystem/object combination in 01-schema.sql
+- Column grant summary: No explicit column-level grant recorded
+- Row-level filter: None specified
+- Schema snapshot: `materials` is a canonical view with 6 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. product_id
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `materials` compatibility view.
+
+  2. product_name
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `materials` compatibility view.
+
+  3. category
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `materials` compatibility view.
+
+  4. uom
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `materials` compatibility view.
+
+  5. stock_qty
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `materials` compatibility view.
+
+  6. reorder_level
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `materials` compatibility view.
+
+==============================================================
+OBJECT: components
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: Table
+- Reference schema object name: components
+- Canonical 01-schema object name: components
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: Create=True, Read=True, Update=True, Delete=False
+- Column grant summary: 6 readable columns, 3 writable columns
+- Row-level filter: None specified
+- Schema snapshot: `components` is a canonical table with 7 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. component_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: Read only
+     - Explanation: Primary identifier for each components row.
+
+  2. item_id
+     - Type: INT
+     - Required: Yes
+     - Key / Relationship: Unique
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  3. component_code
+     - Type: VARCHAR(60)
+     - Required: Yes
+     - Key / Relationship: Unique
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `component_code` in the canonical `components` table.
+
+  4. specification
+     - Type: TEXT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `specification` in the canonical `components` table.
+
+  5. created_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing when the row was created.
+
+  6. updated_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing the most recent update time.
+
+  7. CONSTRAINT fk
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: FK -> inventory_items.item_id
+     - Subsystem Access: No explicit column grant
+     - Explanation: Business field for `CONSTRAINT` in the canonical `components` table.
+
+- Columns NOT explicitly granted for read access: CONSTRAINT
+
+==============================================================
+OBJECT: work_centers
+==============================================================
+- Stewardship note: Manufacturing work centers.
+- Object type: Table
+- Reference schema object name: work_centers
+- Canonical 01-schema object name: work_centers
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Manufacturing
+- Permission summary: Create=True, Read=True, Update=True, Delete=False
+- Column grant summary: 8 readable columns, 6 writable columns
+- Row-level filter: None specified
+- Schema snapshot: `work_centers` is a canonical table with 8 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. work_center_id
+     - Type: VARCHAR(50)
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: Read/Write
+     - Explanation: Primary identifier for each work centers row.
+
+  2. work_center_name
+     - Type: VARCHAR(100)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Human-readable label shown in the application and reports.
+
+  3. work_center_type
+     - Type: VARCHAR(50)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `work_center_type` in the canonical `work_centers` table.
+
+  4. capacity_hours
+     - Type: DECIMAL(10,2)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `capacity_hours` in the canonical `work_centers` table.
+
+  5. utilization_pct
+     - Type: DECIMAL(5,2)
+     - Required: No (default 0)
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `utilization_pct` in the canonical `work_centers` table.
+
+  6. location
+     - Type: VARCHAR(100)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `location` in the canonical `work_centers` table.
+
+  7. created_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing when the row was created.
+
+  8. updated_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing the most recent update time.
+
+==============================================================
+OBJECT: routing_steps
+==============================================================
+- Stewardship note: Manufacturing routing step details.
+- Object type: Table
+- Reference schema object name: routing_steps
+- Canonical 01-schema object name: routing_steps
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Manufacturing
+- Permission summary: Create=True, Read=True, Update=True, Delete=False
+- Column grant summary: 10 readable columns, 7 writable columns
+- Row-level filter: None specified
+- Schema snapshot: `routing_steps` is a canonical table with 12 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. routing_step_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: Read only
+     - Explanation: Primary identifier for each routing steps row.
+
+  2. routing_id
+     - Type: INT
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  3. operation_id
+     - Type: VARCHAR(50)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  4. sequence_number
+     - Type: INT
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `sequence_number` in the canonical `routing_steps` table.
+
+  5. operation_name
+     - Type: VARCHAR(100)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Human-readable label shown in the application and reports.
+
+  6. work_center_id
+     - Type: VARCHAR(50)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  7. setup_time
+     - Type: DECIMAL(10,2)
+     - Required: No (default 0)
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `setup_time` in the canonical `routing_steps` table.
+
+  8. run_time
+     - Type: DECIMAL(10,2)
+     - Required: No (default 1)
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `run_time` in the canonical `routing_steps` table.
+
+  9. created_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing when the row was created.
+
+  10. updated_at
+      - Type: TIMESTAMP
+      - Required: No (default CURRENT_TIMESTAMP)
+      - Key / Relationship: None
+      - Subsystem Access: Read only
+      - Explanation: System-generated timestamp showing the most recent update time.
+
+  11. CONSTRAINT uq
+      - Type: N/A
+      - Required: No
+      - Key / Relationship: Unique
+      - Subsystem Access: No explicit column grant
+      - Explanation: Business field for `CONSTRAINT` in the canonical `routing_steps` table.
+
+  12. CONSTRAINT fk
+      - Type: N/A
+      - Required: No
+      - Key / Relationship: FK -> work_centers.work_center_id
+      - Subsystem Access: No explicit column grant
+      - Explanation: Business field for `CONSTRAINT` in the canonical `routing_steps` table.
+
+- Columns NOT explicitly granted for read access: CONSTRAINT, CONSTRAINT
+
+==============================================================
+OBJECT: assembly_lines
+==============================================================
+- Stewardship note: Manufacturing assembly lines.
+- Object type: Table
+- Reference schema object name: assembly_lines
+- Canonical 01-schema object name: assembly_lines
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Manufacturing
+- Permission summary: Create=True, Read=True, Update=True, Delete=False
+- Column grant summary: 7 readable columns, 5 writable columns
+- Row-level filter: None specified
+- Schema snapshot: `assembly_lines` is a canonical table with 8 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. line_id
+     - Type: VARCHAR(50)
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: Read/Write
+     - Explanation: Primary identifier for each assembly lines row.
+
+  2. line_name
+     - Type: VARCHAR(100)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Human-readable label shown in the application and reports.
+
+  3. shift_pattern
+     - Type: VARCHAR(50)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `shift_pattern` in the canonical `assembly_lines` table.
+
+  4. line_status
+     - Type: VARCHAR(30)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Lifecycle or processing status used by the subsystem workflow.
+
+  5. product_item_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  6. created_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing when the row was created.
+
+  7. updated_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing the most recent update time.
+
+  8. CONSTRAINT fk
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: FK -> inventory_items.item_id
+     - Subsystem Access: No explicit column grant
+     - Explanation: Business field for `CONSTRAINT` in the canonical `assembly_lines` table.
+
+- Columns NOT explicitly granted for read access: CONSTRAINT
+
+==============================================================
+OBJECT: assembly_line_work_centers
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: Table
+- Reference schema object name: assembly_line_work_centers
+- Canonical 01-schema object name: assembly_line_work_centers
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: Create=True, Read=True, Update=True, Delete=False
+- Column grant summary: 2 readable columns, 2 writable columns
+- Row-level filter: None specified
+- Schema snapshot: `assembly_line_work_centers` is a canonical table with 4 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. line_id
+     - Type: VARCHAR(50)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  2. work_center_id
+     - Type: VARCHAR(50)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  3. PRIMARY KEY
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit column grant
+     - Explanation: Business field for `PRIMARY` in the canonical `assembly_line_work_centers` table.
+
+  4. CONSTRAINT fk
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: FK -> assembly_lines.line_id
+     - Subsystem Access: No explicit column grant
+     - Explanation: Business field for `CONSTRAINT` in the canonical `assembly_line_work_centers` table.
+
+- Columns NOT explicitly granted for read access: PRIMARY, CONSTRAINT
+
+==============================================================
+OBJECT: bom_header
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: View
+- Reference schema object name: bom_header
+- Canonical 01-schema object name: bom_header
+- View source table: bills_of_materials
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: No explicit permission_matrix row found for this subsystem/object combination in 01-schema.sql
+- Column grant summary: No explicit column-level grant recorded
+- Row-level filter: None specified
+- Schema snapshot: `bom_header` is a canonical view with 5 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. bom_id
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `bom_header` compatibility view.
+
+  2. product_id
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `bom_header` compatibility view.
+
+  3. revision_no
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `bom_header` compatibility view.
+
+  4. active
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `bom_header` compatibility view.
+
+  5. created_at
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `bom_header` compatibility view.
+
+==============================================================
+OBJECT: bom_items
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: Table
+- Reference schema object name: bom_items
+- Canonical 01-schema object name: bom_items
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: Create=True, Read=True, Update=True, Delete=False
+- Column grant summary: 7 readable columns, 4 writable columns
+- Row-level filter: None specified
+- Schema snapshot: `bom_items` is a canonical table with 9 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. bom_item_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: Read only
+     - Explanation: Primary identifier for each bom items row.
+
+  2. bom_id
+     - Type: INT
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  3. component_id
+     - Type: INT
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  4. quantity_required
+     - Type: DECIMAL(15,2)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Quantity or volume measure used for inventory or transaction handling.
+
+  5. uom
+     - Type: VARCHAR(30)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `uom` in the canonical `bom_items` table.
+
+  6. created_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing when the row was created.
+
+  7. updated_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing the most recent update time.
+
+  8. CONSTRAINT fk
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: FK -> bills_of_materials.bom_id
+     - Subsystem Access: No explicit column grant
+     - Explanation: Business field for `CONSTRAINT` in the canonical `bom_items` table.
+
+  9. CONSTRAINT uq
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: Unique
+     - Subsystem Access: No explicit column grant
+     - Explanation: Business field for `CONSTRAINT` in the canonical `bom_items` table.
+
+- Columns NOT explicitly granted for read access: CONSTRAINT, CONSTRAINT
+
+==============================================================
+OBJECT: production_orders
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: Table
+- Reference schema object name: production_orders
+- Canonical 01-schema object name: production_orders
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: No explicit permission_matrix row found for this subsystem/object combination in 01-schema.sql
+- Column grant summary: No explicit column-level grant recorded
+- Row-level filter: None specified
+- Schema snapshot: `production_orders` is a canonical table with 7 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. production_order_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Primary identifier for each production orders row.
+
+  2. order_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Identifier used to link this row to another business record.
+
+  3. car_vin
+     - Type: VARCHAR(50)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `car_vin` in the canonical `production_orders` table.
+
+  4. order_quantity
+     - Type: INT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Quantity or volume measure used for inventory or transaction handling.
+
+  5. order_status
+     - Type: VARCHAR(30)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Lifecycle or processing status used by the subsystem workflow.
+
+  6. due_date
+     - Type: DATE
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Date/time value used for scheduling, auditing, or business tracking.
+
+  7. CONSTRAINT fk
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: FK -> orders.order_id
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `CONSTRAINT` in the canonical `production_orders` table.
+
+==============================================================
+OBJECT: execution_logs
+==============================================================
+- Stewardship note: Manufacturing execution logs.
+- Object type: Table
+- Reference schema object name: execution_logs
+- Canonical 01-schema object name: execution_logs
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Manufacturing
+- Permission summary: Create=True, Read=True, Update=True, Delete=False
+- Column grant summary: 10 readable columns, 7 writable columns
+- Row-level filter: None specified
+- Schema snapshot: `execution_logs` is a canonical table with 11 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. execution_log_id
+     - Type: CHAR(36)
+     - Required: No (default (UUID()))
+     - Key / Relationship: PK
+     - Subsystem Access: Read only
+     - Explanation: Primary identifier for each execution logs row.
+
+  2. production_order_id
+     - Type: INT
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  3. start_time
+     - Type: TIMESTAMP
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `start_time` in the canonical `execution_logs` table.
+
+  4. end_time
+     - Type: TIMESTAMP
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `end_time` in the canonical `execution_logs` table.
+
+  5. operator_id
+     - Type: VARCHAR(50)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Identifier used to link this row to another business record.
+
+  6. qty_produced
+     - Type: INT
+     - Required: No (default 0)
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Quantity or volume measure used for inventory or transaction handling.
+
+  7. scrap_qty
+     - Type: INT
+     - Required: No (default 0)
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Quantity or volume measure used for inventory or transaction handling.
+
+  8. note
+     - Type: TEXT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: Read/Write
+     - Explanation: Business field for `note` in the canonical `execution_logs` table.
+
+  9. created_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: Read only
+     - Explanation: System-generated timestamp showing when the row was created.
+
+  10. updated_at
+      - Type: TIMESTAMP
+      - Required: No (default CURRENT_TIMESTAMP)
+      - Key / Relationship: None
+      - Subsystem Access: Read only
+      - Explanation: System-generated timestamp showing the most recent update time.
+
+  11. CONSTRAINT fk
+      - Type: N/A
+      - Required: No
+      - Key / Relationship: FK -> production_orders.production_order_id
+      - Subsystem Access: No explicit column grant
+      - Explanation: Business field for `CONSTRAINT` in the canonical `execution_logs` table.
+
+- Columns NOT explicitly granted for read access: CONSTRAINT
+
+==============================================================
+OBJECT: quality_checks
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: View
+- Reference schema object name: quality_checks
+- Canonical 01-schema object name: quality_checks
+- View source table: quality_inspections
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: No explicit permission_matrix row found for this subsystem/object combination in 01-schema.sql
+- Column grant summary: No explicit column-level grant recorded
+- Row-level filter: None specified
+- Schema snapshot: `quality_checks` is a canonical view with 5 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. qc_id
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `quality_checks` compatibility view.
+
+  2. production_order_id
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `quality_checks` compatibility view.
+
+  3. status
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `quality_checks` compatibility view.
+
+  4. pass_rate
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `quality_checks` compatibility view.
+
+  5. inspection_date
+     - Type: Derived / View column
+     - Required: Derived
+     - Key / Relationship: Derived
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Projected column exposed by the `quality_checks` compatibility view.
+
+==============================================================
+OBJECT: manufactured_cars
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: Table
+- Reference schema object name: manufactured_cars
+- Canonical 01-schema object name: manufactured_cars
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: No explicit permission_matrix row found for this subsystem/object combination in 01-schema.sql
+- Column grant summary: No explicit column-level grant recorded
+- Row-level filter: None specified
+- Schema snapshot: `manufactured_cars` is a canonical table with 7 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. vin
+     - Type: VARCHAR(50)
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `vin` in the canonical `manufactured_cars` table.
+
+  2. model_name
+     - Type: VARCHAR(100)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Human-readable label shown in the application and reports.
+
+  3. chassis_type
+     - Type: VARCHAR(80)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `chassis_type` in the canonical `manufactured_cars` table.
+
+  4. build_status
+     - Type: VARCHAR(40)
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Lifecycle or processing status used by the subsystem workflow.
+
+  5. assembly_line
+     - Type: VARCHAR(80)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `assembly_line` in the canonical `manufactured_cars` table.
+
+  6. color
+     - Type: VARCHAR(50)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `color` in the canonical `manufactured_cars` table.
+
+  7. created_at
+     - Type: TIMESTAMP
+     - Required: No (default CURRENT_TIMESTAMP)
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: System-generated timestamp showing when the row was created.
+
+==============================================================
+OBJECT: routings
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: Table
+- Reference schema object name: routings
+- Canonical 01-schema object name: routings
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: No explicit permission_matrix row found for this subsystem/object combination in 01-schema.sql
+- Column grant summary: No explicit column-level grant recorded
+- Row-level filter: None specified
+- Schema snapshot: `routings` is a canonical table with 7 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. routing_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Primary identifier for each routings row.
+
+  2. bom_id
+     - Type: INT
+     - Required: Yes
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Identifier used to link this row to another business record.
+
+  3. work_center_id
+     - Type: VARCHAR(50)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Identifier used to link this row to another business record.
+
+  4. assigned_operator_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Identifier used to link this row to another business record.
+
+  5. setup_time
+     - Type: INT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `setup_time` in the canonical `routings` table.
+
+  6. run_time
+     - Type: INT
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `run_time` in the canonical `routings` table.
+
+  7. CONSTRAINT fk
+     - Type: N/A
+     - Required: No
+     - Key / Relationship: FK -> bills_of_materials.bom_id
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `CONSTRAINT` in the canonical `routings` table.
+
+==============================================================
+OBJECT: bills_of_materials
+==============================================================
+- Stewardship note: No stewardship note recorded in data_ownership.
+- Object type: Table
+- Reference schema object name: bills_of_materials
+- Canonical 01-schema object name: bills_of_materials
+- Mapped from: Direct name-aligned mapping from reference schema to canonical schema.
+- Canonical owner: Unassigned
+- Permission summary: No explicit permission_matrix row found for this subsystem/object combination in 01-schema.sql
+- Column grant summary: No explicit column-level grant recorded
+- Row-level filter: None specified
+- Schema snapshot: `bills_of_materials` is a canonical table with 5 columns defined in 01-schema.sql.
+
+COLUMNS:
+  1. bom_id
+     - Type: INT
+     - Required: No
+     - Key / Relationship: PK
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Primary identifier for each bills of materials row.
+
+  2. product_name
+     - Type: VARCHAR(120)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Human-readable label shown in the application and reports.
+
+  3. material_list
+     - Type: JSON
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Structured payload storing extended or semi-structured data.
+
+  4. bom_version
+     - Type: VARCHAR(30)
+     - Required: No
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `bom_version` in the canonical `bills_of_materials` table.
+
+  5. is_active
+     - Type: BOOLEAN
+     - Required: No (default TRUE)
+     - Key / Relationship: None
+     - Subsystem Access: No explicit canonical grant recorded
+     - Explanation: Business field for `is_active` in the canonical `bills_of_materials` table.
+
+==============================================================
+END OF DOCUMENT
+==============================================================

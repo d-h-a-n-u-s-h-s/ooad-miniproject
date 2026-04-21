@@ -1,0 +1,37 @@
+======================================================
+DATABASE SETUP AND USAGE INFORMATION
+======================================================
+
+1. NO APPLICATION MOCKING IS BEING USED
+------------------------------------------------------
+The Java application (Manufacturing subsystem) DOES NOT contain any mock database logic, hardcoded memory lists, or bypassed connections. 
+
+The application strictly and exclusively uses the official Integration Team SDK (`erp-subsystem-sdk-1.0.0.jar`) to perform all Database operations via `mfg.create()`, `mfg.readAll()`, etc.
+
+2. LOCAL DATABASE FAILOVER
+------------------------------------------------------
+Because the central AWS RDS database (`erp-integration-mysql.ch444ikasa7s.ap-south-1.rds.amazonaws.com`) is currently offline/unreachable, we provisioned a physical MySQL Database on your local machine (`localhost`) to act as the central database. 
+
+The SDK was successfully redirected to use this local instance by updating the `db.host=localhost` property in:
+`src/main/resources/application-rds.properties`
+
+3. DATABASE ARCHITECTURE (erp_subsystem)
+------------------------------------------------------
+The local MySQL database named `erp_subsystem` contains two distinct sets of tables to satisfy both the business logic and the SDK's internal security mechanics.
+
+A. Business / Manufacturing Tables:
+- `inventory_items` (Table): Stores raw physical stock items.
+- `materials` (View): A canonical view mapped over `inventory_items`.
+- `components` (Table): Manufacturing-specific parts linked to items.
+- `bills_of_materials` (Table): Stores hierarchical BOM JSON structures.
+
+B. SDK Internal Tables (Required for SDK Boot):
+- `users`: Used by SDK to map 'mfg_lead' to an internal user_id.
+- `roles`: Maps the users to their system roles (e.g., admin, user).
+- `integration_registry`: Tracks registered subsystems (MANUFACTURING).
+- `permission_matrix`: The SDK uses this to authorize every CRUD query.
+- `audit_logs`: The SDK's AuditLogger automatically writes here after queries.
+
+4. INITIALIZATION SCRIPT (setup_db.py)
+------------------------------------------------------
+We created a script `setup_db.py` in the root directory. This script acts as the "Database Administrator". It connects to your local MySQL using `root`, creates the schemas above, and injects the exact permission matrix rows necessary for the SDK to authorize the Manufacturing Subsystem.

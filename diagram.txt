@@ -1,0 +1,351 @@
+================================================================================
+ PRODUCT KEY FEATURES (Top 10 Highlights)
+================================================================================
+
+1. SUPPLY CHAIN MANAGEMENT (SCM) INTEGRATION:
+   - Features real-time, bi-directional asynchronous network syncing via dedicated Ngrok tunnels. New materials created in Manufacturing are automatically broadcasted to the Supply Chain API, and inventory updates from Supply Chain are captured locally on Port 8081.
+
+2. DATABASE SDK ABSTRACTION:
+   - Built on top of a centralized AbstractSubsystem SDK, entirely eliminating raw SQL queries from the business logic. Connections are securely pooled and managed via pplication-rds.properties mapping to standard Map objects.
+
+3. MULTILEVEL BILL OF MATERIALS (BOM) ENGINE:
+   - Supports recursive, multi-tiered composite tree structures. Users can attach raw materials to sub-assemblies and calculate cumulative scaling costs infinitely deep using the custom BOMNode hierarchy algorithm.
+
+4. MATERIAL REQUIREMENTS PLANNING (MRP) ESTIMATION:
+   - Automatically calculates total manufacturing costs (Material Unit Costs + Setup Times + Operational Run Times) dynamically based on user-requested target quantities before ever committing a Production Plan.
+
+5. AUTOMATED PRODUCTION ORDER LIFECYCLE:
+   - Standardizes the transition of a generic Production Plan into an actionable Order by automatically calculating a +7 Days Lead Time and injecting the order onto the Shop Floor pipeline.
+
+6. DYNAMIC WORK CENTER ROUTING:
+   - Provides sequential assembly-line logic. Managers can define complex routing workflows, assign operation IDs, and mathematically calculate Work Center utilization and capacities natively.
+
+7. SHOP FLOOR YIELD EXECUTION:
+   - Offers real-time shop floor data logging. Operators can continuously input incremental quantities produced on active orders, which update global tracking variables without over-writing previous batch logs.
+
+8. AUTOMATED QUALITY CONTROL GATES:
+   - Enforces strict logical barriers: A Production Order is strictly invisible to the Quality Inspector until the physically produced yield exactly matches the planned order quantity and its routing state reaches 'Completed'.
+
+9. SMART DEFECT THRESHOLD ALERTS:
+   - Mathematically calculates Pass/Fail ratings during final inspection. If the Defect Rate breaches the 5% warning threshold, the system triggers custom alert warnings (QcDefectThresholdExceededException) but safely commits the log history.
+
+10. EVENT-DRIVEN UI SYNCHRONIZATION:
+    - Utilizes a purely event-driven Model-View-Controller architecture. Modifying a BOM, assigning an assembly line, or creating a material dynamically triggers Java Reflection ChangeListeners that seamlessly refresh all interconnected UI tabs instantaneously.
+
+================================================================================
+ MANUFACTURING MODULE - UML DIAGRAM DESCRIPTIONS & DESIGN ARCHITECTURE
+================================================================================
+
+---------------------------------------------------------
+ 1. USE CASE DIAGRAM (Textual Description)
+---------------------------------------------------------
+ACTORS:
+- Primary Actors: 
+    1. Production Manager (Responsible for planning, BOMs, and routing)
+    2. Shop Floor Operator (Responsible for execution, assembly, and logging quantities)
+- Secondary Actors:
+    1. Quality Inspector (Responsible for evaluating finished goods)
+    2. Supply Chain Subsystem / API (Receives and sends material updates automatically)
+
+USE CASES:
+- Manage Bill of Materials (BOM)
+    >> <<include>> Validate BOM Structure (Checking for circular dependencies)
+- Create Capacity Production Plan (MRP)
+    >> <<extend>> Generate Detailed Cost Report (Only executed when plan is fully formulated and requested)
+- Define Assembly Line Routing
+- Execute Production Order
+    >> <<include>> Log Shop Floor Quantity (Updates the produced/total ratio)
+- Perform Quality Control Check
+    >> <<extend>> Mark Order as FAILURE (Only triggered if defects exceed the 5% threshold)
+- Synchronize Materials (Supply Chain API Integration)
+
+---------------------------------------------------------
+ 2. CLASS DIAGRAM (Textual Description)
+---------------------------------------------------------
+CLASSES & METHODS:
+
+<<INTERFACES>>
+1. Subsystem (com.erp.sdk.subsystem.Subsystem)
+   - Methods: initialize(), shutdown(), read(), readAll(), create(), update(), delete()
+   - Relationships: Implemented by AbstractSubsystem, providing the contract for all SDK database transactions.
+
+2. HttpHandler (com.sun.net.httpserver.HttpHandler)
+   - Methods: handle(HttpExchange exchange)
+   - Relationships: Implemented by MaterialsHandler inside InventoryApiServer to parse incoming REST requests.
+
+3. ActionListener (java.awt.event.ActionListener)
+   - Methods: actionPerformed(ActionEvent e)
+   - Relationships: Implemented as lambdas across all UI components (Tabs, Dialogs) to handle button interactions and trigger BOMService methods.
+
+4. ChangeListener (javax.swing.event.ChangeListener)
+   - Methods: stateChanged(ChangeEvent e)
+   - Relationships: Implemented inside ManufacturingHomePanel to dynamically execute refreshData() via Reflection on tab switches.
+
+5. DocumentListener (javax.swing.event.DocumentListener)
+   - Methods: insertUpdate(), removeUpdate(), changedUpdate()
+   - Relationships: Implemented inside ShopFloorExecutionTab to provide real-time search filtering on execution logs.
+
+6. Map & List (java.util.Map, java.util.List)
+   - Relationships: Fundamental data transit interfaces used globally by the SDK Subsystem to return JSON-like SQL result sets to the UI.
+
+<<CLASSES>>
+
+1. BasePanel (Abstract Class)
+   - Methods: initializeComponents(), layoutComponents(), setupListeners()
+   - Relationships: Parent structural class. Extended by ManufacturingHomePanel.
+
+2. ManufacturingHomePanel (extends BasePanel)
+   - Methods: initializeComponents(), layoutComponents()
+   - Relationships: Aggregates multiple UI Tabs (Composition). Starts InventoryApiServer.
+
+3. BOMService (Singleton)
+   - Fields: AbstractSubsystem mfg, String USERNAME, BOMService instance
+   - Methods: getInstance(), addMaterial(), createBOM(), getRoutingSteps(), createAssemblyLine(name: String, seq: int, wc: String, orderId: int), logQualityCheck(id: int, defects: int), addMaterialFromAPI()
+   - Relationships: Facade connecting UI to the Database SDK.
+
+4. BOMExplorerTab (extends JPanel)
+   - Fields: JTree bomTree, DefaultTreeModel treeModel
+   - Methods: refreshData(), buildTree(), addMaterial()
+   - Relationships: Uses BOMService, Uses JSONUtil.BOMNode
+
+5. ManufacturingPlanningTab (extends JPanel)
+   - Fields: JTable planTable
+   - Methods: releasePlan(), convertToOrder()
+   - Relationships: Uses BOMService.
+
+6. AssemblyLinesTab (extends JPanel)
+   - Fields: JComboBox orderCombo, JTable linesTable
+   - Methods: updateOrderDetails(), createLine(), assignOrder(), moveOrder()
+   - Relationships: Uses BOMService.
+
+7. QualityControlTab (extends JPanel)
+   - Fields: JComboBox orderCombo, JTable qcTable, JTextArea detailsArea
+   - Methods: updateDetailsPane(), logQC()
+   - Relationships: Uses BOMService.
+
+8. JSONUtil & JSONUtil.BOMNode
+   - Fields: String name, double qty, String uom, double cost, List<BOMNode> children
+   - Methods: toJSON(), fromJSON()
+   - Relationships: Data structure representing composite trees.
+
+9. RoutingTab (extends JPanel)
+   - Fields: JComboBox bomFilterCombo, JTable routingTable
+   - Methods: refreshData(), buildBody()
+   - Relationships: Retrieves BOM operations from BOMService.
+
+10. WorkCentersTab (extends JPanel)
+   - Fields: JTable wcTable
+   - Methods: refreshData(), createWorkCenter()
+   - Relationships: Calls BOMService to track capacity metrics.
+
+11. ShopFloorExecutionTab (extends JPanel)
+   - Fields: JComboBox orderCombo, JTable logsTable, TableRowSorter sorter
+   - Methods: logExecution(), refreshData()
+   - Relationships: Appends live production yields to Database.
+
+12. MRPDetailsDialog, NewBOMDialog, AddMaterialDialog (extend JDialog)
+   - Methods: setupUI(), loadCombos(), calculateBOMCost()
+   - Relationships: Modal popup windows that aggregate forms and submit unified JSON/Map payloads to BOMService.
+
+13. InventoryApiServer & InventoryApiClient
+   - Inner Class: MaterialsHandler implements HttpHandler
+   - Methods: startServer(), handleGet(), handlePost(), pushMaterialToSupplyChain()
+   - Relationships: Communicates natively over HTTP. Interacts with BOMService.
+
+---------------------------------------------------------
+ 3. STATE DIAGRAM DETAILS (Two Simple Scenarios)
+---------------------------------------------------------
+
+SCENARIO 1: BILL OF MATERIALS (BOM) LIFECYCLE
+(A clean, simple step-by-step state flow of creating a BOM)
+
+Step 1. Current State: [Null]
+Step 2. Transition: User adds raw materials to the catalog.
+Step 3. Current State: [Material Drafts]
+Step 4. Transition: User clicks Save.
+Step 5. Current State: [Active Materials]
+Step 6. Transition: User groups materials into a structured hierarchy.
+Step 7. Current State: [BOM Draft]
+Step 8. Transition: User clicks Commit.
+Step 9. Current State: [Active BOM]
+Step 10. Transition: User defines operational sequences for the BOM.
+Step 11. Current State: [BOM with Routing]
+Step 12. Transition: Manager selects BOM to generate a plan.
+Step 13. Current State: [In Production] (Final State)
+
+SCENARIO 2: NETWORK CONNECTION LIFECYCLE
+(A simple step-by-step state flow of receiving an external API request)
+
+Step 1. Current State: [Offline]
+Step 2. Transition: App launches and starts InventoryApiServer.
+Step 3. Current State: [Listening on Port 8081]
+Step 4. Transition: External Supply Chain sends an HTTP POST.
+Step 5. Current State: [Receiving Network Data]
+Step 6. Transition: Payload finishes downloading and is sent to JSON parser.
+Step 7. Current State: [Parsing Data]
+Step 8. Transition: Validation passes, data saved to local DB.
+Step 9. Current State: [Data Processed]
+Step 10. Transition: HTTP 200 OK Response sent back to client.
+Step 11. Current State: [Listening on Port 8081] (Returns to Idle)
+
+---------------------------------------------------------
+ 4. ACTIVITY DIAGRAM DETAILS (End-to-End Workflow)
+---------------------------------------------------------
+1. START: User adds Materials and defines a BOM (Bill of Materials).
+2. API SYNC: Asynchronous thread broadcasts material creation to Supply Chain.
+3. DECISION: Does the BOM have routing? 
+   - If Yes: Map Work Centers and operational steps.
+   - If No: Proceed to planning.
+4. ACTION: User runs MRP to generate a Production Plan based on demand.
+5. CALCULATION: System recursively calculates multilevel BOM material costs + operational costs.
+6. ACTION: User converts Plan into an "Active" Production Order.
+7. PARALLEL EXECUTION: 
+   - Path A: Shop Floor Operator logs physical quantities built.
+   - Path B: Order is routed sequentially through mapped Assembly Lines.
+8. SYNCHRONIZATION: Order reaches final Assembly Line and is marked "Completed".
+9. ACTION: Quality Inspector logs defects against the completed produced quantity.
+10. DECISION: Defect Rate > 5%?
+    - If Yes: Mark as FAILURE.
+    - If No: Mark as PASSED.
+11. END WORKFLOW.
+
+---------------------------------------------------------
+ 5. SEQUENCE DIAGRAM DETAILS (End-to-End Workflow)
+---------------------------------------------------------
+OBJECTS/LIFELINES INVOLVED: 
+User, UI Tabs, BOMService, JSONUtil, Database, InventoryApiClient
+
+SIMPLE STEP-BY-STEP SEQUENCE:
+
+-- PHASE 1: Material & BOM Creation --
+1. User types material details and clicks "Save" in AddMaterialDialog.
+2. UI Dialog sends the data to BOMService.
+3. BOMService saves the material to the Database.
+4. BOMService tells InventoryApiClient to sync.
+5. InventoryApiClient sends the material over the network to Supply Chain API.
+6. User selects materials and clicks "Create BOM" in NewBOMDialog.
+7. UI Dialog sends the selected items to JSONUtil.
+8. JSONUtil converts the items into a single JSON string.
+9. UI Dialog sends the JSON string to BOMService.
+10. BOMService saves the new BOM to the Database.
+
+-- PHASE 2: Planning & Cost Estimation --
+11. User selects the BOM in MRPDetailsDialog and enters a quantity.
+12. UI Dialog asks BOMService for the total estimated cost.
+13. BOMService fetches the BOM and recursively calculates the material costs.
+14. BOMService asks Database for operational step times.
+15. BOMService calculates routing costs and adds it to material costs.
+16. BOMService returns the final Total Cost to the UI Dialog.
+17. UI Dialog displays the detailed MRP cost report to the User.
+18. User clicks "Release Plan".
+19. BOMService saves the Production Plan to the Database.
+
+-- PHASE 3: Order Conversion & Routing --
+20. User clicks "Convert to PO" in ManufacturingPlanningTab.
+21. BOMService calculates the Lead Time (Start Date + 7 days).
+22. BOMService creates an 'Active' Production Order in the Database.
+23. User opens AssemblyLinesTab and clicks "Assign to First Line".
+24. BOMService assigns the order to Line #1 in the Database.
+25. User clicks "Advance to Next Line".
+26. BOMService calculates the next sequence and updates the Database.
+27. User clicks "Advance" on the final line.
+28. BOMService automatically updates the order status to "Completed" in the Database.
+
+-- PHASE 4: Shop Floor & Quality Control --
+29. User opens ShopFloorExecutionTab and enters the quantity produced.
+30. BOMService adds the produced quantity to the Database.
+31. User opens QualityControlTab and logs the number of defective pieces found.
+32. UI Tab sends the defect count to BOMService.
+33. BOMService checks if (defects / produced_quantity) > 5%.
+34. BOMService updates the Database with "PASSED" or "FAILURE".
+35. UI Tab shows the final Detailed QC Report pane to the User.
+
+================================================================================
+ A. DESIGN PATTERNS EXPLAINED (10 Patterns)
+================================================================================
+
+1. FACADE PATTERN (Structural)
+   - Where it's used: BOMService.java
+   - Explanation: Hides the complex SQL/Map interactions of the AbstractSubsystem behind simple, high-level methods.
+
+2. COMPOSITE PATTERN (Structural)
+   - Where it's used: JSONUtil.BOMNode and BOMExplorerTab
+   - Explanation: Represents the Bill of Materials. A node can be a leaf (raw material) or a composite of other nodes (sub-assemblies), allowing recursive cost calculations.
+
+3. SINGLETON PATTERN (Creational)
+   - Where it's used: BOMService.getInstance() and InventoryApiServer.getInstance()
+   - Explanation: Guarantees exactly one instance exists across the app, preventing duplicate DB connection pools or crashing the port bindings.
+
+4. OBSERVER / EVENT-LISTENER PATTERN (Behavioral)
+   - Where it's used: ChangeListener inside ManufacturingHomePanel
+   - Explanation: Dynamically triggers 
+efreshData() events across tabs when a user navigates, perfectly syncing data.
+
+5. FACTORY METHOD PATTERN (Creational)
+   - Where it's used: UIHelper.java
+   - Explanation: Centralizes the instantiation of Swing components (createPrimaryButton(), createLabel()) ensuring exact UI consistency without code duplication.
+
+6. STRATEGY PATTERN (Behavioral)
+   - Where it's used: TableRowSorter<DefaultTableModel>
+   - Explanation: Dynamically swaps sorting algorithms at runtime to filter logs when the user types in the Search boxes.
+
+7. DATA TRANSFER OBJECT (DTO) PATTERN (Structural)
+   - Where it's used: BomItem and OrderItem inner classes
+   - Explanation: Lightweight object wrappers used exclusively to transport Data from the backend service to the frontend ComboBox models.
+
+8. PROXY PATTERN (Structural)
+   - Where it's used: InventoryApiClient.pushMaterialToSupplyChain()
+   - Explanation: Acts as a local stand-in for the external API, hiding the complex network boundary and serialization logic from the UI.
+
+9. TEMPLATE METHOD PATTERN (Behavioral)
+   - Where it's used: BasePanel.java
+   - Explanation: Dictates the skeletal lifecycle of all UI components by enforcing initializeComponents() and layoutComponents() in a specific order.
+
+10. MODEL-VIEW-CONTROLLER (MVC) (Architectural Pattern)
+   - Where it's used: Global Module Structure
+   - Explanation: Separates the UI views (Tabs) from the Model (BOMService) via Controllers (ActionListeners/Lambdas).
+
+
+================================================================================
+ B. DESIGN PRINCIPLES EXPLAINED (10 Principles)
+================================================================================
+
+1. SINGLE RESPONSIBILITY PRINCIPLE (SRP)
+   - Where it's used: Distinct UI Tabs
+   - Explanation: Every class does exactly one thing. QualityControlTab exclusively manages QC math and never attempts to parse BOM trees.
+
+2. OPEN/CLOSED PRINCIPLE (OCP)
+   - Where it's used: ManufacturingHomePanel
+   - Explanation: The system is perfectly open to extension (you can add a new Tab easily) but closed to modification (the core rendering frame does not change).
+
+3. LISKOV SUBSTITUTION PRINCIPLE (LSP)
+   - Where it's used: Java Swing Framework Integration
+   - Explanation: Every single Tab in our project successfully extends JPanel and can be substituted natively into any Java AWT component without breaking behavior.
+
+4. INTERFACE SEGREGATION PRINCIPLE (ISP)
+   - Where it's used: HttpHandler inside InventoryApiServer
+   - Explanation: Instead of massive networking interfaces, it relies on a single tiny interface method handle(HttpExchange) to cleanly process API payloads.
+
+5. DEPENDENCY INVERSION PRINCIPLE (DIP)
+   - Where it's used: Module Cross-Talk
+   - Explanation: UI components do not depend on raw MySQL database logic. They depend entirely on abstractions provided by BOMService.
+
+6. SEPARATION OF CONCERNS (SoC)
+   - Where it's used: JSONUtil vs UI Layers
+   - Explanation: Serialization logic is strictly isolated from Swing UI logic. A change in the JSON hierarchy does not require rewriting panel drawing code.
+
+7. KEEP IT SIMPLE, STUPID (KISS)
+   - Where it's used: Embedded HTTP Server
+   - Explanation: Instead of injecting heavy external frameworks like Spring Boot just to receive 3 API endpoints, we utilized native, lightweight Java HttpServer.
+
+8. DON\'T REPEAT YOURSELF (DRY)
+   - Where it's used: UIHelper styling attributes
+   - Explanation: All margins, fonts, padding, and colors are defined once in Constants.java and applied exclusively through UIHelper.
+
+9. PRINCIPLE OF LEAST ASTONISHMENT (POLA)
+   - Where it's used: Data Validation
+   - Explanation: All numeric user inputs gracefully catch errors (Exception ex) and trigger standard, predictable JOptionPane error dialogs instead of crashing the system.
+
+10. ENCAPSULATION PRINCIPLE
+    - Where it's used: Database Abstraction
+    - Explanation: AbstractSubsystem properties and API configurations are perfectly encapsulated. The UI layer has zero visibility into how the database connection pooling works.
