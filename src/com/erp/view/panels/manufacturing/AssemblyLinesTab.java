@@ -3,31 +3,28 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * AssemblyLinesTab manages assembly lines specifically tied to active production orders.
  */
 public class AssemblyLinesTab extends JPanel {
 
-    private JComboBox<OrderItem> orderCombo;
+    private JComboBox<ProductionOrder> orderCombo;
     private JLabel statusLabel;
     private JLabel currentLineLabel;
     
     private JTable linesTable;
     private DefaultTableModel linesTableModel;
     
-    static class OrderItem {
-        int id; String name; String status; int currentLine;
-        OrderItem(int i, String n, String s, int c) { id=i; name=n; status=s; currentLine=c; }
-        public String toString() { return "Order #" + id + " - " + name; }
-    }
+    private JTable historyTable;
+    private DefaultTableModel historyTableModel;
 
     public AssemblyLinesTab() {
         setLayout(new BorderLayout(0, 10));
@@ -122,6 +119,22 @@ public class AssemblyLinesTab extends JPanel {
         createLinePanel.add(createLineBtn);
         leftPanel.add(createLinePanel, BorderLayout.SOUTH);
 
+        // History Panel
+        JPanel historyPanel = new JPanel(new BorderLayout(5, 5));
+        historyPanel.setOpaque(false);
+        historyPanel.setBorder(BorderFactory.createTitledBorder("Movement History"));
+        
+        String[] histCols = {"Line Name", "Timestamp"};
+        historyTableModel = new DefaultTableModel(histCols, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
+        };
+        historyTable = new JTable(historyTableModel);
+        historyPanel.add(new JScrollPane(historyTable), BorderLayout.CENTER);
+        
+        JSplitPane innerSplit = new JSplitPane(JSplitPane.VERTICAL_SPLIT, leftPanel, historyPanel);
+        innerSplit.setDividerLocation(150);
+        innerSplit.setOpaque(false);
+
         // Right Panel: Actions
         JPanel rightPanel = new JPanel(new GridLayout(2, 1, 10, 10));
         rightPanel.setOpaque(false);
@@ -143,7 +156,7 @@ public class AssemblyLinesTab extends JPanel {
         rightPanel.add(assignPanel);
         rightPanel.add(movePanel);
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, leftPanel, rightPanel);
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, innerSplit, rightPanel);
         splitPane.setDividerLocation(500);
         splitPane.setOpaque(false);
         
@@ -153,57 +166,81 @@ public class AssemblyLinesTab extends JPanel {
     }
     
     private void updateOrderDetails() {
-        OrderItem o = (OrderItem) orderCombo.getSelectedItem();
+        ProductionOrder order = (ProductionOrder) orderCombo.getSelectedItem();
         linesTableModel.setRowCount(0);
-        if (o == null) {
+        if (historyTableModel != null) historyTableModel.setRowCount(0);
+        if (order == null) {
             statusLabel.setText("Status: -");
             currentLineLabel.setText("Current Line: -");
             return;
         }
         
-        if ("Completed".equals(o.status)) {
+        if ("Completed".equals(order.getOrderStatus())) {
             statusLabel.setText("Status: COMPLETED");
             statusLabel.setForeground(new Color(34, 139, 34)); // Dark green
         } else {
-            statusLabel.setText("Status: " + o.status);
+            statusLabel.setText("Status: " + order.getOrderStatus());
             statusLabel.setForeground(Constants.TEXT_PRIMARY);
         }
         
         try {
-            List<Map<String, Object>> lines = BOMService.getInstance().getAllAssemblyLines();
+            List<AssemblyLine> lines = BOMService.getInstance().getAllAssemblyLines();
+            List<AssemblyMovement> movements = BOMService.getInstance().getAllAssemblyMovements();
             String currentLineName = "Not Assigned";
             
+            java.util.Map<Integer, String> lineNames = new java.util.HashMap<>();
             if (lines != null) {
                 // sort by sequence
-                lines.sort((a,b) -> Integer.compare(((Number)a.get("sequence_num")).intValue(), ((Number)b.get("sequence_num")).intValue()));
-                for (Map<String, Object> l : lines) {
-                    Number orderIdNum = (Number) l.get("production_order_id");
-                    if (orderIdNum != null && orderIdNum.intValue() == o.id) {
-                        int id = ((Number) l.get("line_id")).intValue();
-                        String name = (String) l.get("line_name");
-                        linesTableModel.addRow(new Object[]{ id, name, l.get("sequence_num"), l.get("work_center_id") });
+                lines.sort((a,b) -> Integer.compare(a.getSequenceNum(), b.getSequenceNum()));
+                for (AssemblyLine l : lines) {
+                    if (l.getProductionOrderId() == order.getId()) {
+                        System.out.println("DEBUG UI: Match found! Line '" + l.getName() + "' for Order #" + order.getId());
+                        lineNames.put(l.getId(), l.getName());
+                        linesTableModel.addRow(new Object[]{ l.getId(), l.getName(), l.getSequenceNum(), l.getWorkCenterId() });
                         
-                        if (id == o.currentLine) {
-                            currentLineName = name;
+                        if (l.getId() == order.getCurrentLineId()) {
+                            currentLineName = l.getName();
                         }
                     }
                 }
             }
             
+            if (movements != null) {
+                movements.sort((a,b) -> {
+                    String ta = a.getTimestamp();
+                    String tb = b.getTimestamp();
+                    if (ta == null) return -1;
+                    if (tb == null) return 1;
+                    return ta.compareTo(tb);
+                });
+                for (AssemblyMovement m : movements) {
+                    if (m.getProductionOrderId() == order.getId()) {
+                        String lineName = lineNames.getOrDefault(m.getLineId(), "Unknown Line (ID: " + m.getLineId() + ")");
+                        historyTableModel.addRow(new Object[]{ lineName, m.getTimestamp() });
+                    }
+                }
+            }
+            
             currentLineLabel.setText("Current Line: " + currentLineName);
-            if (o.currentLine == -1 && "Completed".equals(o.status)) {
+            if (order.getCurrentLineId() == -1 && "Completed".equals(order.getOrderStatus())) {
                 currentLineLabel.setText("Current Line: Finished");
             }
-        } catch (Exception e) {}
+            
+            linesTable.revalidate();
+            linesTable.repaint();
+        } catch (Exception e) {
+            System.err.println("ERROR: Failed to update order details for Order #" + (order != null ? order.getId() : "NULL"));
+            e.printStackTrace();
+        }
     }
 
     private void createLine() {
-        OrderItem o = (OrderItem) orderCombo.getSelectedItem();
-        if (o == null) {
+        ProductionOrder order = (ProductionOrder) orderCombo.getSelectedItem();
+        if (order == null) {
             JOptionPane.showMessageDialog(this, "Select an order first.");
             return;
         }
-        if ("Completed".equals(o.status)) {
+        if ("Completed".equals(order.getOrderStatus())) {
             JOptionPane.showMessageDialog(this, "Cannot create lines for a completed order.");
             return;
         }
@@ -218,25 +255,27 @@ public class AssemblyLinesTab extends JPanel {
         panel.add(new JLabel("Work Center:"));
         JComboBox<String> wcCombo = new JComboBox<>();
         try {
-            List<Map<String, Object>> wcs = BOMService.getInstance().getAllWorkCenters();
+            List<WorkCenter> wcs = BOMService.getInstance().getAllWorkCenters();
             if (wcs != null) {
-                for (Map<String, Object> wc : wcs) {
-                    wcCombo.addItem((String) wc.get("work_center_id"));
+                for (WorkCenter wc : wcs) {
+                    wcCombo.addItem(wc.getId());
                 }
             }
         } catch (Exception ignored) {}
         panel.add(wcCombo);
         
-        int res = JOptionPane.showConfirmDialog(this, panel, "Create Assembly Line for Order #" + o.id, JOptionPane.OK_CANCEL_OPTION);
+        int res = JOptionPane.showConfirmDialog(this, panel, "Create Assembly Line for Order #" + order.getId(), JOptionPane.OK_CANCEL_OPTION);
         if (res == JOptionPane.OK_OPTION) {
             try {
                 int seq = Integer.parseInt(seqField.getText().trim());
                 String wcId = (String) wcCombo.getSelectedItem();
-                if (wcId == null) {
-                    JOptionPane.showMessageDialog(this, "A Work Center must be selected.");
-                    return;
-                }
-                BOMService.getInstance().createAssemblyLine(nameField.getText(), seq, wcId, o.id);
+                AssemblyLine l = new AssemblyLine();
+                l.setName(nameField.getText());
+                l.setSequenceNum(seq);
+                l.setWorkCenterId(wcId);
+                l.setProductionOrderId(order.getId());
+                
+                BOMService.getInstance().createAssemblyLine(l);
                 refreshData();
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
@@ -245,9 +284,9 @@ public class AssemblyLinesTab extends JPanel {
     }
 
     private void assignOrder() {
-        OrderItem o = (OrderItem) orderCombo.getSelectedItem();
-        if (o == null) return;
-        if (o.currentLine != -1 || "Completed".equals(o.status)) {
+        ProductionOrder order = (ProductionOrder) orderCombo.getSelectedItem();
+        if (order == null) return;
+        if (order.getCurrentLineId() != -1 || "Completed".equals(order.getOrderStatus())) {
             JOptionPane.showMessageDialog(this, "Order is already assigned or completed.");
             return;
         }
@@ -259,7 +298,7 @@ public class AssemblyLinesTab extends JPanel {
         int firstLineId = (int) linesTableModel.getValueAt(0, 0); // sorted by seq
         
         try {
-            BOMService.getInstance().assignOrderToLine(o.id, firstLineId);
+            BOMService.getInstance().assignOrderToLine(order.getId(), firstLineId);
             JOptionPane.showMessageDialog(this, "Assigned successfully!");
             refreshData();
         } catch (Exception e) {
@@ -268,15 +307,15 @@ public class AssemblyLinesTab extends JPanel {
     }
 
     private void moveOrder() {
-        OrderItem o = (OrderItem) orderCombo.getSelectedItem();
-        if (o == null) return;
-        if (o.currentLine == -1 || "Completed".equals(o.status)) {
+        ProductionOrder order = (ProductionOrder) orderCombo.getSelectedItem();
+        if (order == null) return;
+        if (order.getCurrentLineId() == -1 || "Completed".equals(order.getOrderStatus())) {
             JOptionPane.showMessageDialog(this, "Order is not currently in assembly or already completed.");
             return;
         }
         
         try {
-            BOMService.getInstance().moveOrderToNextLine(o.id, o.currentLine);
+            BOMService.getInstance().moveOrderToNextLine(order.getId(), order.getCurrentLineId());
             JOptionPane.showMessageDialog(this, "Order advanced successfully!");
             refreshData();
         } catch (Exception e) {
@@ -289,35 +328,20 @@ public class AssemblyLinesTab extends JPanel {
             // Store current selection
             int selectedOrderId = -1;
             if (orderCombo.getSelectedItem() != null) {
-                selectedOrderId = ((OrderItem) orderCombo.getSelectedItem()).id;
+                selectedOrderId = ((ProductionOrder) orderCombo.getSelectedItem()).getId();
             }
             
             orderCombo.removeAllItems();
             
-            List<Map<String, Object>> orders = BOMService.getInstance().getAllProductionOrders();
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
-            java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
-            if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    bomNames.put(((Number) b.get("bom_id")).intValue(), (String) b.get("product_name"));
-                }
-            }
+            List<ProductionOrder> orders = BOMService.getInstance().getAllProductionOrders();
             
-            OrderItem toSelect = null;
+            ProductionOrder toSelect = null;
             if (orders != null) {
-                for (Map<String, Object> o : orders) {
-                    String status = (String) o.get("order_status");
-                    if ("Active".equals(status) || "Completed".equals(status)) {
-                        int id = ((Number) o.get("production_order_id")).intValue();
-                        int bomId = ((Number) o.get("bom_id")).intValue();
-                        int lineId = o.get("current_line_id") != null ? ((Number) o.get("current_line_id")).intValue() : -1;
-                        String name = bomNames.getOrDefault(bomId, "Unknown");
-                        
-                        OrderItem item = new OrderItem(id, name, status, lineId);
-                        orderCombo.addItem(item);
-                        
-                        if (id == selectedOrderId) {
-                            toSelect = item;
+                for (ProductionOrder o : orders) {
+                    if ("Active".equals(o.getOrderStatus()) || "Completed".equals(o.getOrderStatus())) {
+                        orderCombo.addItem(o);
+                        if (o.getId() == selectedOrderId) {
+                            toSelect = o;
                         }
                     }
                 }

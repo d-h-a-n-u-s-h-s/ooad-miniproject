@@ -3,6 +3,7 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,13 +11,9 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * WorkCentersTab represents the View for Work Centers.
- * Principles & Patterns Used:
- * 1. Low Coupling (GRASP): Communicates exclusively through BOMService.
- * 2. Information Expert (GRASP): Calculates Utilization inline from Routing Steps data fetched via Service.
  */
 public class WorkCentersTab extends JPanel {
 
@@ -108,21 +105,19 @@ public class WorkCentersTab extends JPanel {
     private void refreshData() {
         tableModel.setRowCount(0);
         try {
-            List<Map<String, Object>> centers = BOMService.getInstance().getAllWorkCenters();
-            List<Map<String, Object>> routings = BOMService.getInstance().getRoutingSteps();
+            List<WorkCenter> centers = BOMService.getInstance().getAllWorkCenters();
+            List<RoutingStep> routings = BOMService.getInstance().getRoutingSteps();
 
-            for (Map<String, Object> wc : centers) {
-                String id = (String) wc.get("work_center_id");
-                double capacity = ((Number) wc.get("capacity_hours")).doubleValue();
+            for (WorkCenter wc : centers) {
+                String id = wc.getId();
+                double capacity = wc.getCapacityHours();
                 
                 // Calculate consumed capacity
                 double consumed = 0;
                 if (routings != null) {
-                    for (Map<String, Object> r : routings) {
-                        if (id.equals(r.get("work_center_id"))) {
-                            double setup = ((Number) r.get("setup_time")).doubleValue();
-                            double run = ((Number) r.get("run_time")).doubleValue();
-                            consumed += setup + run;
+                    for (RoutingStep r : routings) {
+                        if (id.equals(r.getWorkCenterId())) {
+                            consumed += r.getSetupTime() + r.getRunTime();
                         }
                     }
                 }
@@ -132,11 +127,11 @@ public class WorkCentersTab extends JPanel {
 
                 tableModel.addRow(new Object[]{
                         id,
-                        wc.get("work_center_name"),
-                        wc.get("work_center_type"),
+                        wc.getName(),
+                        wc.getType(),
                         capacity,
                         utilStr,
-                        wc.get("location")
+                        wc.getLocation()
                 });
             }
         } catch (Exception e) {

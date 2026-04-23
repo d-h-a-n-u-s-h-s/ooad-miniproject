@@ -3,6 +3,7 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,7 +11,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * ManufacturingPlanningTab represents the MRP view.
@@ -200,12 +200,12 @@ public class ManufacturingPlanningTab extends JPanel {
 
         try {
             // Check if existing production order exists for this plan
-            List<Map<String, Object>> orders = BOMService.getInstance().getAllProductionOrders();
+            List<ProductionOrder> orders = BOMService.getInstance().getAllProductionOrders();
             int existingOrderId = -1;
             if (orders != null) {
-                for (Map<String, Object> o : orders) {
-                    if (o.get("plan_id") != null && ((Number) o.get("plan_id")).intValue() == planId) {
-                        existingOrderId = ((Number) o.get("production_order_id")).intValue();
+                for (ProductionOrder o : orders) {
+                    if (o.getPlanId() == planId) {
+                        existingOrderId = o.getId();
                         break;
                     }
                 }
@@ -215,12 +215,19 @@ public class ManufacturingPlanningTab extends JPanel {
             cal.add(java.util.Calendar.DAY_OF_YEAR, 7);
             String endDate = new java.text.SimpleDateFormat("yyyy-MM-dd").format(cal.getTime());
 
+            ProductionOrder order = new ProductionOrder();
+            order.setBomId(bomId);
+            order.setOrderQuantity(qty);
+            order.setStartDate(startDate);
+            order.setDueDate(endDate);
+            order.setPlanId(planId);
+            order.setOrderStatus("Active");
+
             if (existingOrderId != -1) {
-                // Update existing
-                BOMService.getInstance().updateProductionOrder(existingOrderId, bomId, qty, startDate, endDate);
+                order.setId(existingOrderId);
+                BOMService.getInstance().updateProductionOrder(order);
             } else {
-                // Create new
-                BOMService.getInstance().createProductionOrder(bomId, qty, startDate, endDate, planId);
+                BOMService.getInstance().createProductionOrder(order);
             }
             
             BOMService.getInstance().updateProductionPlanStatus(planId, "Converted");
@@ -235,29 +242,29 @@ public class ManufacturingPlanningTab extends JPanel {
     public void refreshData() {
         tableModel.setRowCount(0);
         try {
-            List<Map<String, Object>> plans = BOMService.getInstance().getAllProductionPlans();
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<ProductionPlan> plans = BOMService.getInstance().getAllProductionPlans();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
             
             java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
             if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    bomNames.put(((Number) b.get("bom_id")).intValue(), (String) b.get("product_name"));
+                for (BOM b : boms) {
+                    bomNames.put(b.getId(), b.getProductName());
                 }
             }
             
             if (plans != null) {
-                for (Map<String, Object> p : plans) {
-                    int bomId = ((Number) p.get("bom_id")).intValue();
+                for (ProductionPlan p : plans) {
+                    int bomId = p.getBomId();
                     String productName = bomNames.getOrDefault(bomId, "Unknown");
                     tableModel.addRow(new Object[]{
-                            p.get("plan_id"),
+                            p.getId(),
                             productName,
                             bomId,
-                            p.get("planned_quantity"),
-                            p.get("start_date") == null ? "" : p.get("start_date").toString(),
-                            p.get("total_cost"),
-                            p.get("total_hours"),
-                            p.get("status")
+                            p.getPlannedQuantity(),
+                            p.getStartDate() == null ? "" : p.getStartDate(),
+                            p.getTotalCost(),
+                            p.getTotalHours(),
+                            p.getStatus()
                     });
                 }
             }

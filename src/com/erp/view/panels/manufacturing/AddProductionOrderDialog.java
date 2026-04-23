@@ -3,30 +3,24 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Dialog for manually creating a Production Order.
  */
 public class AddProductionOrderDialog extends JDialog {
 
-    private JComboBox<BomItem> bomCombo;
+    private JComboBox<BOM> bomCombo;
     private JTextField qtyField;
     private JTextField startDateField;
     private JTextField endDateField;
     
     private boolean added = false;
-
-    static class BomItem {
-        int id; String name;
-        BomItem(int i, String n) { id=i; name=n; }
-        public String toString() { return name + " [" + id + "]"; }
-    }
 
     public AddProductionOrderDialog(Window owner) {
         super(owner, "Create Production Order", ModalityType.APPLICATION_MODAL);
@@ -80,19 +74,18 @@ public class AddProductionOrderDialog extends JDialog {
 
     private void loadCombos() {
         try {
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
             if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    int id = ((Number) b.get("bom_id")).intValue();
-                    bomCombo.addItem(new BomItem(id, (String)b.get("product_name")));
+                for (BOM b : boms) {
+                    bomCombo.addItem(b);
                 }
             }
         } catch (Exception ignored) {}
     }
 
     private void save() {
-        BomItem item = (BomItem) bomCombo.getSelectedItem();
-        if (item == null) return;
+        BOM bom = (BOM) bomCombo.getSelectedItem();
+        if (bom == null) return;
 
         int qty;
         try {
@@ -111,7 +104,15 @@ public class AddProductionOrderDialog extends JDialog {
         }
 
         try {
-            BOMService.getInstance().createProductionOrder(item.id, qty, start, end, -1);
+            ProductionOrder order = new ProductionOrder();
+            order.setBomId(bom.getId());
+            order.setOrderQuantity(qty);
+            order.setStartDate(start);
+            order.setDueDate(end);
+            order.setPlanId(-1);
+            order.setOrderStatus("Active");
+            
+            BOMService.getInstance().createProductionOrder(order);
             added = true;
             dispose();
         } catch (Exception e) {

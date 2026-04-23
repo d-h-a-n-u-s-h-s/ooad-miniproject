@@ -5,6 +5,7 @@ import com.erp.util.Constants;
 import com.erp.util.JSONUtil;
 import com.erp.util.JSONUtil.BOMNode;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -14,7 +15,6 @@ import javax.swing.tree.TreePath;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Dialog for creating or revising a Bill of Materials.
@@ -30,7 +30,7 @@ public class NewBOMDialog extends JDialog {
     private JTree bomTree;
     private DefaultTreeModel treeModel;
     private DefaultMutableTreeNode rootNode;
-    private List<Map<String, Object>> materialsList;
+    private List<Material> materialsList;
     
     private boolean saved = false;
     private int reviseBomId = -1; // -1 means new
@@ -119,8 +119,10 @@ public class NewBOMDialog extends JDialog {
     private void loadProducts() {
         try {
             materialsList = BOMService.getInstance().getAllMaterials();
-            for (Map<String, Object> m : materialsList) {
-                productCombo.addItem((String) m.get("product_name"));
+            if (materialsList != null) {
+                for (Material m : materialsList) {
+                    productCombo.addItem(m.getName());
+                }
             }
         } catch (Exception ignored) {}
     }
@@ -154,7 +156,7 @@ public class NewBOMDialog extends JDialog {
         panel.add(new JLabel("Unit of Measure (UoM):"));
         JTextField uomField = new JTextField("pcs");
         panel.add(uomField);
-
+ 
         panel.add(new JLabel("Total Cost:"));
         JTextField costField = new JTextField("1000.00");
         panel.add(costField);
@@ -162,16 +164,15 @@ public class NewBOMDialog extends JDialog {
         compCombo.addActionListener(e -> {
             String sel = (String) compCombo.getSelectedItem();
             if (materialsList != null && sel != null) {
-                for (Map<String, Object> m : materialsList) {
-                    if (sel.equals(m.get("product_name"))) {
-                        Number cost = (Number) m.get("unit_cost");
-                        if (cost != null) costField.setText(cost.toString());
+                for (Material m : materialsList) {
+                    if (sel.equals(m.getName())) {
+                        costField.setText(String.valueOf(m.getUnitCost()));
                         break;
                     }
                 }
             }
         });
-
+ 
         int result = JOptionPane.showConfirmDialog(this, panel, "Add Component", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         if (result == JOptionPane.OK_OPTION) {
             String name = (String) compCombo.getSelectedItem();
@@ -251,18 +252,21 @@ public class NewBOMDialog extends JDialog {
         String json = JSONUtil.toJSON(nodes);
         
         try {
+            BOM bom = new BOM();
+            bom.setProductName(prod);
+            bom.setVersion(ver);
+            bom.setMaterialListJson(json);
+            bom.setActive(true);
+
             if (reviseBomId != -1) {
-                // If version changed, save as new. Otherwise update.
-                // It's usually better to check existence.
+                bom.setId(reviseBomId);
                 if (BOMService.getInstance().bomExists(prod, ver)) {
-                    // Update existing
-                    BOMService.getInstance().updateBOM(reviseBomId, json);
+                    BOMService.getInstance().updateBOM(bom);
                 } else {
-                    // Save as new version
-                    BOMService.getInstance().createBOM(prod, ver, json);
+                    BOMService.getInstance().createBOM(bom);
                 }
             } else {
-                BOMService.getInstance().createBOM(prod, ver, json);
+                BOMService.getInstance().createBOM(bom);
             }
             saved = true;
             setVisible(false);

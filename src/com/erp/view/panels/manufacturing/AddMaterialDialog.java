@@ -99,7 +99,14 @@ public class AddMaterialDialog extends JDialog {
         }
 
         try {
-            BOMService.getInstance().addMaterial(name, category, uom, stock, reorder);
+            com.erp.model.Material mat = new com.erp.model.Material();
+            mat.setName(name);
+            mat.setCategory(category);
+            mat.setUom(uom);
+            mat.setStockQuantity(stock);
+            mat.setReorderLevel(reorder);
+            
+            BOMService.getInstance().addMaterial(mat);
             added = true;
             setVisible(false);
         } catch (Exception e) {

@@ -22,8 +22,13 @@ def setup():
         line_id INT AUTO_INCREMENT PRIMARY KEY,
         line_name VARCHAR(100),
         sequence_num INT,
-        work_center_id VARCHAR(50)
+        work_center_id VARCHAR(50),
+        production_order_id INT DEFAULT NULL
     )''')
+    
+    # Ensure production_order_id exists if table was created before
+    try: cursor.execute('ALTER TABLE assembly_lines ADD COLUMN production_order_id INT DEFAULT NULL')
+    except: pass
     
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS assembly_movements (
@@ -37,7 +42,7 @@ def setup():
 
     po_cols = '["production_order_id", "bom_id", "order_quantity", "order_status", "start_date", "due_date", "plan_id", "produced_quantity", "current_line_id", "defects", "qc_status"]'
     sfl_cols = '["log_id", "production_order_id", "quantity_logged", "log_timestamp"]'
-    al_cols = '["line_id", "line_name", "sequence_num", "work_center_id"]'
+    al_cols = '["line_id", "line_name", "sequence_num", "work_center_id", "production_order_id"]'
     am_cols = '["movement_id", "production_order_id", "line_id", "movement_timestamp"]'
     
     perms = [

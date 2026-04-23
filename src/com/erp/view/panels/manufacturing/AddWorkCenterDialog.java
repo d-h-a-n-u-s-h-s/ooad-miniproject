@@ -103,7 +103,15 @@ public class AddWorkCenterDialog extends JDialog {
         }
 
         try {
-            BOMService.getInstance().addWorkCenter(id, name, type, capacity, location);
+            com.erp.model.WorkCenter wc = new com.erp.model.WorkCenter();
+            wc.setId(id);
+            wc.setName(name);
+            wc.setType(type);
+            wc.setCapacityHours(capacity);
+            wc.setLocation(location);
+            wc.setUtilizationPct(0.0);
+            
+            BOMService.getInstance().addWorkCenter(wc);
             added = true;
             dispose();
         } catch (Exception e) {

@@ -4,19 +4,19 @@ import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.JSONUtil;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * MRP Details Dialog for entering planning requirements.
  */
 public class MRPDetailsDialog extends JDialog {
 
-    private JComboBox<BomItem> bomCombo;
+    private JComboBox<BOM> bomCombo;
     private JTextField prodNameField;
     private JTextField prodIdField;
     private JTextArea routingArea;
@@ -24,12 +24,6 @@ public class MRPDetailsDialog extends JDialog {
     private JTextField startDateField;
     
     private boolean planReleased = false;
-
-    static class BomItem {
-        int id; String name; String json;
-        BomItem(int i, String n, String j) { id=i; name=n; json=j; }
-        public String toString() { return name + " [" + id + "]"; }
-    }
 
     public MRPDetailsDialog(Window owner) {
         super(owner, "Enter MRP Details", ModalityType.APPLICATION_MODAL);
@@ -99,34 +93,33 @@ public class MRPDetailsDialog extends JDialog {
 
     private void loadCombos() {
         try {
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
             if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    int id = ((Number) b.get("bom_id")).intValue();
-                    bomCombo.addItem(new BomItem(id, (String)b.get("product_name"), (String)b.get("components_json")));
+                for (BOM b : boms) {
+                    bomCombo.addItem(b);
                 }
             }
         } catch (Exception ignored) {}
     }
 
     private void updateAutofill() {
-        BomItem item = (BomItem) bomCombo.getSelectedItem();
-        if (item != null) {
-            prodNameField.setText(item.name);
-            prodIdField.setText(String.valueOf(item.id));
+        BOM bom = (BOM) bomCombo.getSelectedItem();
+        if (bom != null) {
+            prodNameField.setText(bom.getProductName());
+            prodIdField.setText(String.valueOf(bom.getId()));
             
             // Determine routing
             StringBuilder sb = new StringBuilder();
             try {
-                List<Map<String, Object>> steps = BOMService.getInstance().getRoutingSteps();
+                List<RoutingStep> steps = BOMService.getInstance().getRoutingSteps();
                 if (steps != null) {
-                    for (Map<String, Object> s : steps) {
-                        if (((Number) s.get("routing_id")).intValue() == item.id) {
-                            sb.append("Seq ").append(s.get("sequence_number"))
-                              .append(": ").append(s.get("operation_name"))
-                              .append(" (WC: ").append(s.get("work_center_id")).append(")")
-                              .append(" | Setup: ").append(s.get("setup_time"))
-                              .append(" Run: ").append(s.get("run_time")).append("\n");
+                    for (RoutingStep s : steps) {
+                        if (s.getRoutingId() == bom.getId()) {
+                            sb.append("Seq ").append(s.getSequenceNumber())
+                              .append(": ").append(s.getOperationName())
+                              .append(" (WC: ").append(s.getWorkCenterId()).append(")")
+                              .append(" | Setup: ").append(s.getSetupTime())
+                              .append(" Run: ").append(s.getRunTime()).append("\n");
                         }
                     }
                 }
@@ -136,17 +129,16 @@ public class MRPDetailsDialog extends JDialog {
         }
     }
 
-    private double calculateBOMCost(JSONUtil.BOMNode node, List<Map<String, Object>> allBoms) {
+    private double calculateBOMCost(JSONUtil.BOMNode node, List<BOM> allBoms) {
         double unitCost = node.cost;
         
         // If it has 0 explicit cost, it might be a sub-BOM or a material not set up properly
         if (allBoms != null && unitCost == 0) { 
             boolean isBom = false;
-            for (Map<String, Object> bom : allBoms) {
-                if (node.name.equals(bom.get("product_name"))) {
+            for (BOM bom : allBoms) {
+                if (node.name.equals(bom.getProductName())) {
                     isBom = true;
-                    String json = (String) bom.get("components_json");
-                    if (json == null) json = (String) bom.get("material_list");
+                    String json = bom.getMaterialListJson();
                     if (json != null && !json.trim().isEmpty()) {
                         List<JSONUtil.BOMNode> subNodes = JSONUtil.fromJSON(json);
                         for (JSONUtil.BOMNode subNode : subNodes) {
@@ -159,12 +151,11 @@ public class MRPDetailsDialog extends JDialog {
             // If it wasn't a BOM, check materials list
             if (!isBom) {
                 try {
-                    List<Map<String, Object>> materials = BOMService.getInstance().getAllMaterials();
+                    List<Material> materials = BOMService.getInstance().getAllMaterials();
                     if (materials != null) {
-                        for (Map<String, Object> mat : materials) {
-                            if (node.name.equals(mat.get("item_name")) || node.name.equals(mat.get("product_name"))) {
-                                Number uc = (Number) mat.get("unit_cost");
-                                if (uc != null) unitCost = uc.doubleValue();
+                        for (Material mat : materials) {
+                            if (node.name.equals(mat.getName())) {
+                                unitCost = mat.getUnitCost();
                                 break;
                             }
                         }
@@ -187,8 +178,8 @@ public class MRPDetailsDialog extends JDialog {
     }
 
     private void releasePlan() {
-        BomItem item = (BomItem) bomCombo.getSelectedItem();
-        if (item == null) return;
+        BOM bom = (BOM) bomCombo.getSelectedItem();
+        if (bom == null) return;
 
         int qty;
         try {
@@ -206,19 +197,19 @@ public class MRPDetailsDialog extends JDialog {
 
         double unitCost = 0;
         try {
-            List<Map<String, Object>> allBoms = BOMService.getInstance().getAllBOMs();
-            List<JSONUtil.BOMNode> nodes = JSONUtil.fromJSON(item.json);
+            List<BOM> allBoms = BOMService.getInstance().getAllBOMs();
+            List<JSONUtil.BOMNode> nodes = JSONUtil.fromJSON(bom.getMaterialListJson());
             for (JSONUtil.BOMNode n : nodes) unitCost += calculateBOMCost(n, allBoms);
         } catch (Exception ignored) {}
 
         double totalHoursPerUnit = 0;
         try {
-            List<Map<String, Object>> steps = BOMService.getInstance().getRoutingSteps();
+            List<RoutingStep> steps = BOMService.getInstance().getRoutingSteps();
             if (steps != null) {
-                for (Map<String, Object> s : steps) {
-                    if (((Number) s.get("routing_id")).intValue() == item.id) {
-                        totalHoursPerUnit += ((Number) s.get("setup_time")).doubleValue();
-                        totalHoursPerUnit += ((Number) s.get("run_time")).doubleValue();
+                for (RoutingStep s : steps) {
+                    if (s.getRoutingId() == bom.getId()) {
+                        totalHoursPerUnit += s.getSetupTime();
+                        totalHoursPerUnit += s.getRunTime();
                     }
                 }
             }
@@ -230,7 +221,15 @@ public class MRPDetailsDialog extends JDialog {
         double totalCost = totalMaterialCost + totalOperationalCost;
 
         try {
-            BOMService.getInstance().createProductionPlan(item.id, qty, startDate, totalCost, totalHours);
+            ProductionPlan plan = new ProductionPlan();
+            plan.setBomId(bom.getId());
+            plan.setPlannedQuantity(qty);
+            plan.setStartDate(startDate);
+            plan.setTotalCost(totalCost);
+            plan.setTotalHours(totalHours);
+            plan.setStatus("Draft");
+
+            BOMService.getInstance().createProductionPlan(plan);
             planReleased = true;
             
             // Show report pane
@@ -246,7 +245,7 @@ public class MRPDetailsDialog extends JDialog {
                 "-----------------------------------\n" +
                 "Total Estimated Cost: ₹%.2f\n\n" +
                 "Capacity Requirement Planning: Passed", 
-                item.name, qty, startDate, totalMaterialCost, totalHours, totalOperationalCost, totalCost);
+                bom.getProductName(), qty, startDate, totalMaterialCost, totalHours, totalOperationalCost, totalCost);
             JOptionPane.showMessageDialog(this, report, "MRP Report", JOptionPane.INFORMATION_MESSAGE);
             
             dispose();

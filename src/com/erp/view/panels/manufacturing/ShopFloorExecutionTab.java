@@ -3,6 +3,7 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,24 +11,17 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * ShopFloorExecutionTab allows users to log execution data for production orders.
  */
 public class ShopFloorExecutionTab extends JPanel {
 
-    private JComboBox<OrderItem> orderCombo;
+    private JComboBox<ProductionOrder> orderCombo;
     private JTextField qtyField;
     private JTable logsTable;
     private DefaultTableModel logsTableModel;
     private TableRowSorter<DefaultTableModel> sorter;
-
-    static class OrderItem {
-        int id; int currentQty; int totalQty; String name;
-        OrderItem(int i, int c, int t, String n) { id=i; currentQty=c; totalQty=t; name=n; }
-        public String toString() { return "Order #" + id + " - " + name + " (Produced: " + currentQty + "/" + totalQty + ")"; }
-    }
 
     public ShopFloorExecutionTab() {
         setLayout(new BorderLayout(0, 10));
@@ -120,7 +114,7 @@ public class ShopFloorExecutionTab extends JPanel {
         
         logsPanel.add(filterPanel, BorderLayout.NORTH);
 
-        String[] cols = {"Log ID", "Order ID", "Product Name", "Qty Logged", "Timestamp"};
+        String[] cols = {"Order ID", "Qty Logged", "Timestamp"};
         logsTableModel = new DefaultTableModel(cols, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
@@ -140,8 +134,8 @@ public class ShopFloorExecutionTab extends JPanel {
     }
 
     private void logExecution() {
-        OrderItem item = (OrderItem) orderCombo.getSelectedItem();
-        if (item == null) {
+        ProductionOrder order = (ProductionOrder) orderCombo.getSelectedItem();
+        if (order == null) {
             JOptionPane.showMessageDialog(this, "Select an order.");
             return;
         }
@@ -161,7 +155,7 @@ public class ShopFloorExecutionTab extends JPanel {
         }
 
         try {
-            BOMService.getInstance().logShopFloorExecution(item.id, item.currentQty, qty);
+            BOMService.getInstance().logShopFloorExecution(order.getId(), order.getProducedQuantity(), qty);
             JOptionPane.showMessageDialog(this, "Execution logged successfully!");
             qtyField.setText("");
             refreshData();
@@ -174,55 +168,25 @@ public class ShopFloorExecutionTab extends JPanel {
     private void refreshData() {
         orderCombo.removeAllItems();
         try {
-            List<Map<String, Object>> orders = BOMService.getInstance().getAllProductionOrders();
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<ProductionOrder> orders = BOMService.getInstance().getAllProductionOrders();
             
-            java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
-            if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    bomNames.put(((Number) b.get("bom_id")).intValue(), (String) b.get("product_name"));
-                }
-            }
-
             if (orders != null) {
-                for (Map<String, Object> o : orders) {
-                    String status = (String) o.get("order_status");
-                    if ("Active".equals(status)) {
-                        int id = ((Number) o.get("production_order_id")).intValue();
-                        int bomId = ((Number) o.get("bom_id")).intValue();
-                        int orderQty = ((Number) o.get("order_quantity")).intValue();
-                        int prodQty = o.get("produced_quantity") != null ? ((Number) o.get("produced_quantity")).intValue() : 0;
-                        String name = bomNames.getOrDefault(bomId, "Unknown");
-                        
-                        orderCombo.addItem(new OrderItem(id, prodQty, orderQty, name));
+                for (ProductionOrder o : orders) {
+                    if ("Active".equals(o.getOrderStatus())) {
+                        orderCombo.addItem(o);
                     }
                 }
             }
 
             // Load logs
             logsTableModel.setRowCount(0);
-            List<Map<String, Object>> logs = BOMService.getInstance().getAllShopFloorLogs();
+            List<ShopFloorLog> logs = BOMService.getInstance().getAllShopFloorLogs();
             if (logs != null) {
-                for (Map<String, Object> log : logs) {
-                    int orderId = ((Number) log.get("production_order_id")).intValue();
-                    // Find product name
-                    String pName = "Unknown";
-                    if (orders != null) {
-                        for (Map<String, Object> o : orders) {
-                            if (((Number) o.get("production_order_id")).intValue() == orderId) {
-                                int bId = ((Number) o.get("bom_id")).intValue();
-                                pName = bomNames.getOrDefault(bId, "Unknown");
-                                break;
-                            }
-                        }
-                    }
-                    
+                for (ShopFloorLog log : logs) {
                     logsTableModel.addRow(new Object[]{
-                        log.get("log_id"),
-                        orderId,
-                        pName,
-                        log.get("quantity_logged"),
-                        log.get("log_timestamp")
+                        log.getProductionOrderId(),
+                        log.getQuantityLogged(),
+                        log.getTimestamp()
                     });
                 }
             }

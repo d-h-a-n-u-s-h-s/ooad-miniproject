@@ -3,31 +3,25 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * QualityControlTab manages final quality checks on completed orders.
  */
 public class QualityControlTab extends JPanel {
 
-    private JComboBox<OrderItem> orderCombo;
+    private JComboBox<ProductionOrder> orderCombo;
     private JTextField defectsField;
     
     private JTable qcTable;
     private DefaultTableModel tableModel;
     private JTextArea detailsArea;
-
-    static class OrderItem {
-        int id; String name; int producedQty; String qcStatus;
-        OrderItem(int i, String n, int p, String q) { id=i; name=n; producedQty=p; qcStatus=q; }
-        public String toString() { return "Order #" + id + " - " + name + " (Qty: " + producedQty + ")"; }
-    }
 
     public QualityControlTab() {
         setLayout(new BorderLayout(0, 10));
@@ -179,8 +173,8 @@ public class QualityControlTab extends JPanel {
     }
 
     private void logQC() {
-        OrderItem item = (OrderItem) orderCombo.getSelectedItem();
-        if (item == null) {
+        ProductionOrder order = (ProductionOrder) orderCombo.getSelectedItem();
+        if (order == null) {
             JOptionPane.showMessageDialog(this, "Select a pending order.");
             return;
         }
@@ -194,7 +188,7 @@ public class QualityControlTab extends JPanel {
         }
 
         try {
-            BOMService.getInstance().logQualityCheck(item.id, defects, item.producedQty);
+            BOMService.getInstance().logQualityCheck(order.getId(), defects, order.getProducedQuantity());
             JOptionPane.showMessageDialog(this, "QC Logged Successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
             defectsField.setText("");
             refreshData();
@@ -214,39 +208,35 @@ public class QualityControlTab extends JPanel {
         detailsArea.setText("Select a record to view the detailed report.");
         
         try {
-            List<Map<String, Object>> orders = BOMService.getInstance().getAllProductionOrders();
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<ProductionOrder> orders = BOMService.getInstance().getAllProductionOrders();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
             
             java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
             if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    bomNames.put(((Number) b.get("bom_id")).intValue(), (String) b.get("product_name"));
+                for (BOM b : boms) {
+                    bomNames.put(b.getId(), b.getProductName());
                 }
             }
 
             if (orders != null) {
-                for (Map<String, Object> o : orders) {
-                    String status = (String) o.get("order_status");
-                    if ("Completed".equals(status)) {
-                        int id = ((Number) o.get("production_order_id")).intValue();
-                        int bomId = ((Number) o.get("bom_id")).intValue();
-                        int prodQty = o.get("produced_quantity") != null ? ((Number) o.get("produced_quantity")).intValue() : 0;
-                        int orderQty = o.get("order_quantity") != null ? ((Number) o.get("order_quantity")).intValue() : 0;
-                        int defects = o.get("defects") != null ? ((Number) o.get("defects")).intValue() : 0;
-                        String qc = (String) o.get("qc_status");
+                for (ProductionOrder o : orders) {
+                    if ("Completed".equals(o.getOrderStatus())) {
+                        int prodQty = o.getProducedQuantity();
+                        int orderQty = o.getOrderQuantity();
+                        String qc = o.getQcStatus();
                         if (qc == null) qc = "Pending";
                         
                         // Only evaluate if all items were physically produced
                         if (prodQty < orderQty) continue;
                         
-                        String name = bomNames.getOrDefault(bomId, "Unknown");
+                        String name = bomNames.getOrDefault(o.getBomId(), "Unknown");
                         
                         // If pending, add to combo box so it can be evaluated exactly once
                         if ("Pending".equals(qc)) {
-                            orderCombo.addItem(new OrderItem(id, name, prodQty, qc));
+                            orderCombo.addItem(o);
                         } else {
                             // If it has a result, add to the history table
-                            tableModel.addRow(new Object[]{ id, name, prodQty, defects, qc });
+                            tableModel.addRow(new Object[]{ o.getId(), name, prodQty, o.getDefects(), qc });
                         }
                     }
                 }

@@ -3,12 +3,12 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Dialog for creating a new component.
@@ -19,23 +19,10 @@ import java.util.Map;
  */
 public class AddComponentDialog extends JDialog {
 
-    private JComboBox<MaterialItem> materialCombo;
+    private JComboBox<Material> materialCombo;
     private JTextField codeField;
     private JTextField specField;
     private boolean added = false;
-
-    private static class MaterialItem {
-        int id;
-        String name;
-        MaterialItem(int id, String name) {
-            this.id = id;
-            this.name = name;
-        }
-        @Override
-        public String toString() {
-            return name + " (ID: " + id + ")";
-        }
-    }
 
     public AddComponentDialog(Window owner) {
         super(owner, "Add Component", ModalityType.APPLICATION_MODAL);
@@ -85,11 +72,11 @@ public class AddComponentDialog extends JDialog {
 
     private void loadMaterials() {
         try {
-            List<Map<String, Object>> materials = BOMService.getInstance().getAllMaterials();
-            for (Map<String, Object> m : materials) {
-                int id = ((Number) m.get("product_id")).intValue();
-                String name = (String) m.get("product_name");
-                materialCombo.addItem(new MaterialItem(id, name));
+            List<Material> materials = BOMService.getInstance().getAllMaterials();
+            if (materials != null) {
+                for (Material m : materials) {
+                    materialCombo.addItem(m);
+                }
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Failed to load materials: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -97,7 +84,7 @@ public class AddComponentDialog extends JDialog {
     }
 
     private void saveComponent() {
-        MaterialItem selected = (MaterialItem) materialCombo.getSelectedItem();
+        Material selected = (Material) materialCombo.getSelectedItem();
         String code = codeField.getText().trim();
         String spec = specField.getText().trim();
 
@@ -107,7 +94,12 @@ public class AddComponentDialog extends JDialog {
         }
 
         try {
-            BOMService.getInstance().addComponent(selected.id, code, spec);
+            com.erp.model.Component c = new com.erp.model.Component();
+            c.setItemId(selected.getId());
+            c.setComponentCode(code);
+            c.setSpecification(spec);
+            
+            BOMService.getInstance().addComponent(c);
             added = true;
             setVisible(false);
         } catch (Exception e) {

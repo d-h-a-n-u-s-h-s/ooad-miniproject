@@ -3,12 +3,12 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Dialog for creating a new Routing Step.
@@ -18,27 +18,15 @@ import java.util.Map;
  */
 public class AddRoutingStepDialog extends JDialog {
 
-    private JComboBox<BomItem> bomCombo;
+    private JComboBox<BOM> bomCombo;
     private JTextField opIdField;
     private JTextField seqField;
     private JTextField opNameField;
-    private JComboBox<WorkCenterItem> wcCombo;
+    private JComboBox<WorkCenter> wcCombo;
     private JTextField setupField;
     private JTextField runField;
     
     private boolean added = false;
-
-    static class BomItem {
-        int id; String name; String version;
-        BomItem(int i, String n, String v) { id=i; name=n; version=v; }
-        public String toString() { return name + " (" + version + ")"; }
-    }
-
-    static class WorkCenterItem {
-        String id; String name; String type;
-        WorkCenterItem(String i, String n, String t) { id=i; name=n; type=t; }
-        public String toString() { return name + " [" + id + "]"; }
-    }
 
     public AddRoutingStepDialog(Window owner) {
         super(owner, "Add Routing Step", ModalityType.APPLICATION_MODAL);
@@ -74,9 +62,9 @@ public class AddRoutingStepDialog extends JDialog {
         form.add(UIHelper.createLabel("Work Center:", Constants.FONT_REGULAR, Constants.TEXT_PRIMARY));
         wcCombo = new JComboBox<>();
         wcCombo.addActionListener(e -> {
-            WorkCenterItem wc = (WorkCenterItem) wcCombo.getSelectedItem();
-            if (wc != null && wc.type != null) {
-                opNameField.setText(wc.type);
+            WorkCenter wc = (WorkCenter) wcCombo.getSelectedItem();
+            if (wc != null && wc.getType() != null) {
+                opNameField.setText(wc.getType());
             }
         });
         form.add(wcCombo);
@@ -117,21 +105,24 @@ public class AddRoutingStepDialog extends JDialog {
 
     private void loadCombos() {
         try {
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
-            for (Map<String, Object> b : boms) {
-                int id = ((Number) b.get("bom_id")).intValue();
-                bomCombo.addItem(new BomItem(id, (String)b.get("product_name"), (String)b.get("bom_version")));
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
+            if (boms != null) {
+                for (BOM b : boms) {
+                    bomCombo.addItem(b);
+                }
             }
-            List<Map<String, Object>> wcs = BOMService.getInstance().getAllWorkCenters();
-            for (Map<String, Object> w : wcs) {
-                wcCombo.addItem(new WorkCenterItem((String)w.get("work_center_id"), (String)w.get("work_center_name"), (String)w.get("work_center_type")));
+            List<WorkCenter> wcs = BOMService.getInstance().getAllWorkCenters();
+            if (wcs != null) {
+                for (WorkCenter w : wcs) {
+                    wcCombo.addItem(w);
+                }
             }
         } catch (Exception ignored) {}
     }
 
     private void save() {
-        BomItem bom = (BomItem) bomCombo.getSelectedItem();
-        WorkCenterItem wc = (WorkCenterItem) wcCombo.getSelectedItem();
+        BOM bom = (BOM) bomCombo.getSelectedItem();
+        WorkCenter wc = (WorkCenter) wcCombo.getSelectedItem();
         String opId = opIdField.getText().trim();
         String opName = opNameField.getText().trim();
         
@@ -152,7 +143,16 @@ public class AddRoutingStepDialog extends JDialog {
         }
 
         try {
-            BOMService.getInstance().addRoutingStep(bom.id, opId, seq, opName, wc.id, setup, run);
+            RoutingStep step = new RoutingStep();
+            step.setRoutingId(bom.getId());
+            step.setOperationId(opId);
+            step.setSequenceNumber(seq);
+            step.setOperationName(opName);
+            step.setWorkCenterId(wc.getId());
+            step.setSetupTime(setup);
+            step.setRunTime(run);
+            
+            BOMService.getInstance().addRoutingStep(step);
             added = true;
             dispose();
         } catch (com.erp.exceptions.RoutingStepSequenceGapException e) {

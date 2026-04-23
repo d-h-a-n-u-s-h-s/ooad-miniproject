@@ -3,6 +3,7 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -14,21 +15,12 @@ import java.util.Map;
 
 /**
  * RoutingTab represents the View for Routings.
- * Principles & Patterns Used:
- * 1. Low Coupling (GRASP): Fetches data exclusively through BOMService without touching SQL.
- * 2. MVC Architecture: The panel acts as the View and Controller for user gestures.
  */
 public class RoutingTab extends JPanel {
 
     private JTable routeTable;
     private DefaultTableModel tableModel;
-    private JComboBox<BomItem> bomFilterCombo;
-
-    static class BomItem {
-        int id; String name; String version;
-        BomItem(int i, String n, String v) { id=i; name=n; version=v; }
-        public String toString() { return id == -1 ? name : name + " (" + version + ")"; }
-    }
+    private JComboBox<BOM> bomFilterCombo;
 
     public RoutingTab() {
         setLayout(new BorderLayout(0, 10));
@@ -94,7 +86,7 @@ public class RoutingTab extends JPanel {
         toolbar.add(Box.createHorizontalStrut(15));
         toolbar.add(UIHelper.createLabel("Filter by BOM: ", Constants.FONT_REGULAR, Constants.TEXT_PRIMARY));
         bomFilterCombo = new JComboBox<>();
-        bomFilterCombo.addItem(new BomItem(-1, "All BOMs", ""));
+        bomFilterCombo.addItem(new BOM(-1, "All BOMs", ""));
         bomFilterCombo.addActionListener(e -> refreshData());
         toolbar.add(bomFilterCombo);
         
@@ -123,33 +115,50 @@ public class RoutingTab extends JPanel {
     private void refreshData() {
         tableModel.setRowCount(0);
         try {
-            // Populate filter combo if it's empty (except for "All BOMs")
-            if (bomFilterCombo.getItemCount() <= 1) {
-                List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
-                if (boms != null) {
-                    for (Map<String, Object> b : boms) {
-                        bomFilterCombo.addItem(new BomItem(((Number) b.get("bom_id")).intValue(), (String) b.get("product_name"), (String) b.get("bom_version")));
+            BOM selectedFilter = (BOM) bomFilterCombo.getSelectedItem();
+            int filterId = selectedFilter != null ? selectedFilter.getId() : -1;
+
+            java.awt.event.ActionListener[] listeners = bomFilterCombo.getActionListeners();
+            for (java.awt.event.ActionListener l : listeners) bomFilterCombo.removeActionListener(l);
+            
+            bomFilterCombo.removeAllItems();
+            bomFilterCombo.addItem(new BOM(-1, "All BOMs", ""));
+            
+            List<BOM> allBoms = BOMService.getInstance().getAllBOMs();
+            BOM newSelected = null;
+            if (allBoms != null) {
+                for (BOM b : allBoms) {
+                    bomFilterCombo.addItem(b);
+                    if (b.getId() == filterId) {
+                        newSelected = b;
                     }
                 }
             }
+            if (newSelected != null) {
+                bomFilterCombo.setSelectedItem(newSelected);
+            } else {
+                bomFilterCombo.setSelectedIndex(0);
+            }
+            
+            for (java.awt.event.ActionListener l : listeners) bomFilterCombo.addActionListener(l);
 
-            BomItem selectedFilter = (BomItem) bomFilterCombo.getSelectedItem();
-            int filterId = selectedFilter != null ? selectedFilter.id : -1;
+            selectedFilter = (BOM) bomFilterCombo.getSelectedItem();
+            filterId = selectedFilter != null ? selectedFilter.getId() : -1;
 
-            List<Map<String, Object>> steps = BOMService.getInstance().getRoutingSteps();
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<RoutingStep> steps = BOMService.getInstance().getRoutingSteps();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
             
             // Create a quick lookup for BOM product names
             java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
             if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    bomNames.put(((Number) b.get("bom_id")).intValue(), (String) b.get("product_name"));
+                for (BOM b : boms) {
+                    bomNames.put(b.getId(), b.getProductName());
                 }
             }
 
             if (steps != null) {
-                for (Map<String, Object> step : steps) {
-                    int routingId = ((Number) step.get("routing_id")).intValue();
+                for (RoutingStep step : steps) {
+                    int routingId = step.getRoutingId();
                     
                     if (filterId != -1 && routingId != filterId) continue;
                     
@@ -158,12 +167,12 @@ public class RoutingTab extends JPanel {
                     tableModel.addRow(new Object[]{
                             routingId,
                             productName,
-                            step.get("sequence_number"),
-                            step.get("operation_id"),
-                            step.get("operation_name"),
-                            step.get("work_center_id"),
-                            step.get("setup_time"),
-                            step.get("run_time")
+                            step.getSequenceNumber(),
+                            step.getOperationId(),
+                            step.getOperationName(),
+                            step.getWorkCenterId(),
+                            step.getSetupTime(),
+                            step.getRunTime()
                     });
                 }
             }

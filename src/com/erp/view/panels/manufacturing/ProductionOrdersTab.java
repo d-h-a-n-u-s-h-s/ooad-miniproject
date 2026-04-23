@@ -3,6 +3,7 @@ package com.erp.view.panels.manufacturing;
 import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -10,7 +11,6 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * ProductionOrdersTab view.
@@ -115,7 +115,7 @@ public class ProductionOrdersTab extends JPanel {
         }
         
         int orderId = (int) tableModel.getValueAt(row, 0);
-        String status = (String) tableModel.getValueAt(row, 5);
+        String status = (String) tableModel.getValueAt(row, 6);
         
         if ("Cancelled".equals(status)) {
             JOptionPane.showMessageDialog(this, "Order is already cancelled.");
@@ -143,33 +143,33 @@ public class ProductionOrdersTab extends JPanel {
     public void refreshData() {
         tableModel.setRowCount(0);
         try {
-            List<Map<String, Object>> orders = BOMService.getInstance().getAllProductionOrders();
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<ProductionOrder> orders = BOMService.getInstance().getAllProductionOrders();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
             
             java.util.Map<Integer, String> bomNames = new java.util.HashMap<>();
             if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    bomNames.put(((Number) b.get("bom_id")).intValue(), (String) b.get("product_name"));
+                for (BOM b : boms) {
+                    bomNames.put(b.getId(), b.getProductName());
                 }
             }
             
             if (orders != null) {
-                for (Map<String, Object> o : orders) {
-                    int bomId = ((Number) o.get("bom_id")).intValue();
+                for (ProductionOrder o : orders) {
+                    int bomId = o.getBomId();
                     String productName = bomNames.getOrDefault(bomId, "Unknown");
                     
-                    int orderQty = ((Number) o.get("order_quantity")).intValue();
-                    int prodQty = o.get("produced_quantity") != null ? ((Number) o.get("produced_quantity")).intValue() : 0;
+                    int orderQty = o.getOrderQuantity();
+                    int prodQty = o.getProducedQuantity();
                     String qtyStr = prodQty + "/" + orderQty;
 
                     tableModel.addRow(new Object[]{
-                            o.get("production_order_id"),
+                            o.getId(),
                             productName,
                             bomId,
                             qtyStr,
-                            o.get("start_date") == null ? "" : o.get("start_date").toString(),
-                            o.get("due_date") == null ? "" : o.get("due_date").toString(),
-                            o.get("order_status")
+                            o.getStartDate() == null ? "" : o.getStartDate(),
+                            o.getDueDate() == null ? "" : o.getDueDate(),
+                            o.getOrderStatus()
                     });
                 }
             }

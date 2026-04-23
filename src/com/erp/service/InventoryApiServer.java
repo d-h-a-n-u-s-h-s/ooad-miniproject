@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import com.erp.model.Material;
 
 /**
  * Lightweight embedded HTTP server to receive API calls from the Supply Chain subsystem.
@@ -74,17 +75,17 @@ public class InventoryApiServer {
 
         private void handleGet(HttpExchange exchange) throws IOException {
             try {
-                List<Map<String, Object>> materials = BOMService.getInstance().getAllMaterials();
+                List<Material> materials = BOMService.getInstance().getAllMaterials();
                 
                 // Extremely simple manual JSON array generation for the response
                 StringBuilder json = new StringBuilder("[");
                 for (int i = 0; i < materials.size(); i++) {
-                    Map<String, Object> mat = materials.get(i);
+                    Material mat = materials.get(i);
                     json.append("{")
-                        .append("\"item_id\":").append(mat.get("item_id")).append(",")
-                        .append("\"product_name\":\"").append(mat.get("item_name")).append("\",")
-                        .append("\"current_stock\":").append(mat.get("stock_qty")).append(",")
-                        .append("\"minimum_level\":").append(mat.get("reorder_level")).append(",")
+                        .append("\"item_id\":").append(mat.getId()).append(",")
+                        .append("\"product_name\":\"").append(mat.getName()).append("\",")
+                        .append("\"current_stock\":").append(mat.getStockQuantity()).append(",")
+                        .append("\"minimum_level\":").append(mat.getReorderLevel()).append(",")
                         .append("\"status\":\"").append("ACTIVE").append("\"")
                         .append("}");
                     if (i < materials.size() - 1) json.append(",");

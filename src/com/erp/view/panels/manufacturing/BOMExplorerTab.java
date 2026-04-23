@@ -5,6 +5,7 @@ import com.erp.util.Constants;
 import com.erp.util.JSONUtil;
 import com.erp.util.JSONUtil.BOMNode;
 import com.erp.util.UIHelper;
+import com.erp.model.BOM;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -16,14 +17,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 /**
  * BOMExplorerTab represents the View in the MVC pattern.
- * 
- * Principles & Patterns Used:
- * 1. Low Coupling (GRASP): Does not contain any direct database logic, delegates to BOMService.
- * 2. Observer Pattern: Uses ListSelectionListener to observe table changes and update the JTree.
  */
 public class BOMExplorerTab extends JPanel {
 
@@ -32,7 +28,7 @@ public class BOMExplorerTab extends JPanel {
     private JTree bomTree;
     private DefaultTreeModel treeModel;
     private DefaultMutableTreeNode rootNode;
-    private List<Map<String, Object>> currentBoms;
+    private List<BOM> currentBoms;
 
     public BOMExplorerTab() {
         setLayout(new BorderLayout(10, 10));
@@ -92,7 +88,6 @@ public class BOMExplorerTab extends JPanel {
         bomTable = new JTable(tableModel);
         bomTable.setRowHeight(26);
         bomTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        // Observer Pattern: Listens to selection changes to trigger an update in another component
         bomTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) loadSelectedBOMTree();
         });
@@ -117,12 +112,12 @@ public class BOMExplorerTab extends JPanel {
             currentBoms = BOMService.getInstance().getAllBOMs();
             tableModel.setRowCount(0);
             if (currentBoms != null) {
-                for (Map<String, Object> bom : currentBoms) {
+                for (BOM bom : currentBoms) {
                     tableModel.addRow(new Object[]{
-                        bom.get("bom_id"),
-                        bom.get("product_name"),
-                        bom.get("bom_version"),
-                        bom.get("is_active")
+                        bom.getId(),
+                        bom.getProductName(),
+                        bom.getVersion(),
+                        bom.isActive()
                     });
                 }
             }
@@ -136,11 +131,10 @@ public class BOMExplorerTab extends JPanel {
         int row = bomTable.getSelectedRow();
         if (row == -1) return;
 
-        Map<String, Object> bom = currentBoms.get(row);
-        String productName = (String) bom.get("product_name");
-        String version = (String) bom.get("bom_version");
-        String json = (String) bom.get("components_json");
-        if (json == null) json = (String) bom.get("material_list");
+        BOM bom = currentBoms.get(row);
+        String productName = bom.getProductName();
+        String version = bom.getVersion();
+        String json = bom.getMaterialListJson();
 
         rootNode.removeAllChildren();
         rootNode.setUserObject(productName + " (v" + version + ")");
@@ -168,10 +162,9 @@ public class BOMExplorerTab extends JPanel {
         
         // Dynamically add children if this component has its own BOM defined
         if (currentBoms != null) {
-            for (Map<String, Object> bom : currentBoms) {
-                if (node.name.equals(bom.get("product_name"))) {
-                    String json = (String) bom.get("components_json");
-                    if (json == null) json = (String) bom.get("material_list");
+            for (BOM bom : currentBoms) {
+                if (node.name.equals(bom.getProductName())) {
+                    String json = bom.getMaterialListJson();
                     if (json != null && !json.trim().isEmpty()) {
                         List<BOMNode> subNodes = JSONUtil.fromJSON(json);
                         for (BOMNode subNode : subNodes) {
@@ -196,11 +189,11 @@ public class BOMExplorerTab extends JPanel {
             JOptionPane.showMessageDialog(this, "Please select a BOM to revise.");
             return;
         }
-        Map<String, Object> bom = currentBoms.get(row);
-        int bomId = ((Number) bom.get("bom_id")).intValue();
-        String prod = (String) bom.get("product_name");
-        String ver = (String) bom.get("bom_version");
-        String json = (String) bom.get("material_list");
+        BOM bom = currentBoms.get(row);
+        int bomId = bom.getId();
+        String prod = bom.getProductName();
+        String ver = bom.getVersion();
+        String json = bom.getMaterialListJson();
 
         List<BOMNode> nodes = JSONUtil.fromJSON(json);
         

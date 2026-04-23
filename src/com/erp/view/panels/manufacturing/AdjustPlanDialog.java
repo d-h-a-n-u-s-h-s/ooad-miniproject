@@ -4,12 +4,12 @@ import com.erp.service.BOMService;
 import com.erp.util.Constants;
 import com.erp.util.JSONUtil;
 import com.erp.util.UIHelper;
+import com.erp.model.*;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Dialog for adjusting an existing Production Plan.
@@ -65,7 +65,7 @@ public class AdjustPlanDialog extends JDialog {
         setContentPane(content);
     }
 
-    private double calculateBOMCost(JSONUtil.BOMNode node, List<Map<String, Object>> allBoms) {
+    private double calculateBOMCost(JSONUtil.BOMNode node, List<BOM> allBoms) {
         double cost = node.cost;
         if (node.children != null) {
             for (JSONUtil.BOMNode child : node.children) {
@@ -75,10 +75,9 @@ public class AdjustPlanDialog extends JDialog {
 
         // Recursive fetch for multilevel
         if (allBoms != null && cost == 0) { // If it has 0 explicit cost, it might be a sub-BOM
-            for (Map<String, Object> bom : allBoms) {
-                if (node.name.equals(bom.get("product_name"))) {
-                    String json = (String) bom.get("components_json");
-                    if (json == null) json = (String) bom.get("material_list");
+            for (BOM bom : allBoms) {
+                if (node.name.equals(bom.getProductName())) {
+                    String json = bom.getMaterialListJson();
                     if (json != null && !json.trim().isEmpty()) {
                         List<JSONUtil.BOMNode> subNodes = JSONUtil.fromJSON(json);
                         for (JSONUtil.BOMNode subNode : subNodes) {
@@ -111,12 +110,11 @@ public class AdjustPlanDialog extends JDialog {
         // Recalculate totals
         double unitCost = 0;
         try {
-            List<Map<String, Object>> boms = BOMService.getInstance().getAllBOMs();
+            List<BOM> boms = BOMService.getInstance().getAllBOMs();
             if (boms != null) {
-                for (Map<String, Object> b : boms) {
-                    if (((Number) b.get("bom_id")).intValue() == bomId) {
-                        String json = (String) b.get("components_json");
-                        if (json == null) json = (String) b.get("material_list");
+                for (BOM b : boms) {
+                    if (b.getId() == bomId) {
+                        String json = b.getMaterialListJson();
                         List<JSONUtil.BOMNode> nodes = JSONUtil.fromJSON(json);
                         for (JSONUtil.BOMNode n : nodes) unitCost += calculateBOMCost(n, boms);
                         break;
@@ -127,12 +125,12 @@ public class AdjustPlanDialog extends JDialog {
 
         double totalHoursPerUnit = 0;
         try {
-            List<Map<String, Object>> steps = BOMService.getInstance().getRoutingSteps();
+            List<RoutingStep> steps = BOMService.getInstance().getRoutingSteps();
             if (steps != null) {
-                for (Map<String, Object> s : steps) {
-                    if (((Number) s.get("routing_id")).intValue() == bomId) {
-                        totalHoursPerUnit += ((Number) s.get("setup_time")).doubleValue();
-                        totalHoursPerUnit += ((Number) s.get("run_time")).doubleValue();
+                for (RoutingStep s : steps) {
+                    if (s.getRoutingId() == bomId) {
+                        totalHoursPerUnit += s.getSetupTime();
+                        totalHoursPerUnit += s.getRunTime();
                     }
                 }
             }
@@ -144,7 +142,14 @@ public class AdjustPlanDialog extends JDialog {
         double totalCost = totalMaterialCost + totalOperationalCost;
 
         try {
-            BOMService.getInstance().updateProductionPlan(planId, qty, startDate, totalCost, totalHours);
+            ProductionPlan plan = new ProductionPlan();
+            plan.setId(planId);
+            plan.setPlannedQuantity(qty);
+            plan.setStartDate(startDate);
+            plan.setTotalCost(totalCost);
+            plan.setTotalHours(totalHours);
+            
+            BOMService.getInstance().updateProductionPlan(plan);
             adjusted = true;
             dispose();
         } catch (Exception e) {

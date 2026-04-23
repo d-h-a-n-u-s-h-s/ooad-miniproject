@@ -47,7 +47,6 @@ public class ManufacturingHomePanel extends BasePanel {
     @Override
     protected void layoutComponents() {
         contentPanel.setLayout(new BorderLayout());
-        tabs.addTab("Dashboard",         new ManufacturingDashboardTab());
         tabs.addTab("Assembly Lines",    new AssemblyLinesTab());
         tabs.addTab("Production Orders", new ProductionOrdersTab());
         tabs.addTab("BOM Explorer",      new BOMExplorerTab());
